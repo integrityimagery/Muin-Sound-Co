@@ -11,7 +11,11 @@
  * is never removed, never hidden behind a desktop hamburger, and stays fully
  * keyboard reachable.
  *
- * Not sticky, which keeps the mobile viewport budget a non-issue.
+ * Sticky, and it collapses on scroll: the full lockup gives way to the
+ * wordmark and the centred block becomes a single compact row. A 300px-tall
+ * header pinned to the top of a phone would be unusable, so the collapse is
+ * what makes sticky affordable — the collapsed height is asserted against the
+ * brief's 15%-of-viewport budget by scripts/a11y-test.mjs.
  */
 import Brandmark from './Brandmark.astro';
 import Nav from './Nav.astro';
@@ -33,13 +37,53 @@ const {
 } = Astro.props;
 ---
 
-<header class={`site-header site-header--${variant} shell`}>
+{/* Layout-neutral tripwire: absolutely positioned at the document top, so
+    watching it costs nothing and adds no space. The header collapses once it
+    has scrolled out of view. */}
+<div class="header-sentinel" aria-hidden="true" data-header-sentinel></div>
+
+<header
+  class={`site-header site-header--${variant} shell`}
+  data-header
+  data-stuck="false"
+>
   <div class="site-header__brand">
     <Brandmark
       theme={theme}
       variant={variant === 'full' ? 'lockup' : 'wordmark'}
       asLink={markIsLink}
+      collapsible={variant === 'full'}
     />
   </div>
   <Nav pathname={pathname} />
 </header>
+
+<script>
+  /**
+   * Collapses the header once the page has scrolled past the sentinel.
+   *
+   * `position: sticky` is applied by JS (via data-sticky) rather than in the
+   * stylesheet, because without JS nothing would ever collapse it — and a
+   * full-height header pinned to the top of a phone is worse than one that
+   * simply scrolls away. No script, no sticky, original behaviour.
+   *
+   * An IntersectionObserver rather than a scroll listener: no per-frame work,
+   * and no need to throttle anything.
+   */
+  const header = document.querySelector<HTMLElement>('[data-header]');
+  const sentinel = document.querySelector<HTMLElement>('[data-header-sentinel]');
+
+  if (header && sentinel && 'IntersectionObserver' in window) {
+    header.dataset.sticky = 'on';
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        header.dataset.stuck = String(!entry.isIntersecting);
+      },
+      { threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+  }
+</script>

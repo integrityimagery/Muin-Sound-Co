@@ -333,6 +333,44 @@ console.log('\n\x1b[1mStories submenu (desktop)\x1b[0m');
     'hover opens the submenu without aria-expanded going stale'
   );
 
+
+  // Leaving and coming straight back must NOT close it: the pending close
+  // timer has to be cancelled on re-entry, not just on the first open.
+  await page.mouse.move(0, 700);
+  await page.waitForTimeout(120); // less than the grace period
+  await item.hover();
+  await page.waitForTimeout(700); // longer than the grace period
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'true' && (await menu.isVisible()),
+    'returning to the menu cancels the pending close'
+  );
+
+  // Travelling from the trigger down into the panel crosses a visual gap that
+  // belongs to neither element. It must not read as leaving.
+  {
+    const t = await item.boundingBox();
+    const m = await menu.boundingBox();
+    await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+    await page.waitForTimeout(100);
+    // Step through the gap slowly, as a real pointer would.
+    for (let y = t.y + t.height; y <= m.y + 10; y += 2) {
+      await page.mouse.move(t.x + t.width / 2, y);
+    }
+    await page.waitForTimeout(700);
+    check(
+      (await toggle.getAttribute('aria-expanded')) === 'true' && (await menu.isVisible()),
+      'moving from the trigger down into the panel keeps it open'
+    );
+  }
+
+  // And it must still close once the pointer genuinely leaves.
+  await page.mouse.move(640, 20);
+  await page.waitForTimeout(900);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'false',
+    'it still closes when the pointer really leaves'
+  );
+
   // Keyboard: the toggle must be reachable and operable by Tab + Enter.
   // Park the pointer away from the nav first, or the hover path opens the menu
   // before the keyboard ever touches it and we would not be testing keyboard.
@@ -443,6 +481,130 @@ console.log('\n\x1b[1mStories submenu (mobile, inside the off-canvas panel)\x1b[
   await page.close();
 }
 
+
+/* --- Sticky header ---------------------------------------------------------
+   The brief allows a sticky header only if it does not eat more than 15% of
+   viewport height on mobile. That is the assertion that matters here. */
+
+console.log('\n\x1b[1mSticky header\x1b[0m');
+{
+  for (const [w, h] of [[390, 844], [360, 780]]) {
+    const page = await browser.newPage({ viewport: { width: w, height: h } });
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(200);
+
+    const stickyOn = await page.evaluate(
+      () => document.querySelector('[data-header]')?.dataset.sticky === 'on'
+    );
+    check(stickyOn, `header is sticky at ${w}px`);
+
+    await page.evaluate(() => window.scrollTo(0, 900));
+    await page.waitForTimeout(500);
+
+    const state = await page.evaluate(() => {
+      const el = document.querySelector('[data-header]');
+      const r = el.getBoundingClientRect();
+      return {
+        stuck: el.dataset.stuck,
+        top: Math.round(r.top),
+        height: Math.round(r.height),
+        vh: window.innerHeight,
+      };
+    });
+
+    check(state.stuck === 'true', `header collapses after scrolling at ${w}px`);
+    check(state.top <= 1, `header stays pinned to the top at ${w}px`, `top=${state.top}`);
+
+    const pct = (state.height / state.vh) * 100;
+    check(
+      pct <= 15,
+      `collapsed header is within the 15% viewport budget at ${w}px`,
+      `${state.height}px = ${pct.toFixed(1)}% of ${state.vh}px`
+    );
+
+    await page.close();
+  }
+
+  // The lockup gives way to the wordmark, and only ONE is in the a11y tree.
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+
+  const atTop = await page.evaluate(() => ({
+    full: !!document.querySelector('.brandmark__full')?.checkVisibility(),
+    compact: !!document.querySelector('.brandmark__compact')?.checkVisibility(),
+  }));
+  check(atTop.full && !atTop.compact, 'full lockup shows at the top of the page');
+
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(500);
+
+  const scrolled = await page.evaluate(() => ({
+    full: !!document.querySelector('.brandmark__full')?.checkVisibility(),
+    compact: !!document.querySelector('.brandmark__compact')?.checkVisibility(),
+  }));
+  check(
+    !scrolled.full && scrolled.compact,
+    'it collapses to the wordmark once scrolled'
+  );
+
+  // Exactly one logo image is exposed, never both.
+  const named = await page.evaluate(
+    () => [...document.querySelectorAll('header img')].filter((i) => i.checkVisibility()).length
+  );
+  check(named === 1, 'only one logo image is in the accessibility tree', `${named} visible`);
+
+  // Scrolling back up restores it.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(500);
+  const back = await page.evaluate(
+    () => document.querySelector('[data-header]')?.dataset.stuck
+  );
+  check(back === 'false', 'scrolling back to the top restores the full lockup');
+
+  // The submenu must still work from the collapsed header.
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(400);
+  await page.locator('[data-nav-disclosure]').first().click();
+  await page.waitForTimeout(200);
+  const menuVisible = await page.locator('[data-nav-submenu]').first().isVisible();
+  check(menuVisible, 'the Stories submenu still opens from the collapsed header');
+
+  await page.close();
+}
+
+{
+  // The off-canvas panel must still cover the page. A `transform` on the
+  // header would make it the containing block for the fixed panel and break
+  // this, which is why the collapse animates padding instead.
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.waitForTimeout(300);
+
+  const panel = await page.evaluate(() => {
+    const r = document.querySelector('[data-nav-panel]').getBoundingClientRect();
+    return { top: Math.round(r.top), height: Math.round(r.height), vh: window.innerHeight };
+  });
+  check(
+    panel.top <= 1 && panel.height >= panel.vh - 1,
+    'the mobile menu still covers the full viewport from a collapsed header',
+    JSON.stringify(panel)
+  );
+
+  const headerTransform = await page.evaluate(
+    () => getComputedStyle(document.querySelector('[data-header]')).transform
+  );
+  check(
+    headerTransform === 'none',
+    'the header carries no transform (it would break the fixed panel)',
+    headerTransform
+  );
+
+  await page.close();
+}
+
 /* --- No-JS fallback -------------------------------------------------------- */
 
 console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');
@@ -460,6 +622,16 @@ console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');
     'all copy is present in the served HTML, not injected by script'
   );
   check(bodyText.includes('Which one of these is you?'), 'story tiles render without JS');
+
+  const stickiness = await page.evaluate(() => ({
+    sticky: document.querySelector('[data-header]')?.dataset.sticky ?? 'unset',
+    position: getComputedStyle(document.querySelector('[data-header]')).position,
+  }));
+  check(
+    stickiness.sticky === 'unset' && stickiness.position === 'static',
+    'header is NOT sticky without JS — nothing would collapse it',
+    JSON.stringify(stickiness)
+  );
 
   await ctx.close();
 }

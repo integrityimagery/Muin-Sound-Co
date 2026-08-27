@@ -5,6 +5,12 @@
  * Picks the artwork variant matching the active theme. This is selection
  * between supplied files, never recolouring: each set is drawn for its own
  * ground and is illegible on the others.
+ *
+ * With `collapsible`, BOTH the lockup and the wordmark are rendered inside the
+ * one link, and CSS shows whichever the header's state calls for. They are
+ * swapped with `display`, not opacity, so only one is ever in the
+ * accessibility tree — two images carrying the same alt text would otherwise
+ * both be announced.
  */
 import { Image } from 'astro:assets';
 import { themes, DEFAULT_THEME, type Theme } from '../data/themes';
@@ -17,6 +23,8 @@ interface Props {
   variant?: 'lockup' | 'wordmark';
   /** True on the homepage, where the mark is the h1's companion, not a link. */
   asLink?: boolean;
+  /** Also render the wordmark, for the collapsed sticky header. */
+  collapsible?: boolean;
   class?: string;
 }
 
@@ -24,6 +32,7 @@ const {
   theme = DEFAULT_THEME,
   variant = 'lockup',
   asLink = true,
+  collapsible = false,
   class: className = '',
 } = Astro.props;
 
@@ -38,16 +47,33 @@ const sizes =
   variant === 'lockup'
     ? '(max-width: 40rem) 13rem, 21rem'
     : '(max-width: 40rem) 8rem, 11.5rem';
+
+const Wrapper = asLink ? 'a' : 'span';
+const wrapperProps = asLink ? { href: withBase('/') } : {};
 ---
 
-{
-  asLink ? (
-    <a href={withBase("/")} class={`brandmark brandmark--${variant} ${className}`}>
-      <Image src={asset} alt={alt} widths={widths} sizes={sizes} loading="eager" />
-    </a>
-  ) : (
-    <span class={`brandmark brandmark--${variant} ${className}`}>
-      <Image src={asset} alt={alt} widths={widths} sizes={sizes} loading="eager" />
-    </span>
-  )
-}
+<Wrapper
+  {...wrapperProps}
+  class={`brandmark brandmark--${variant} ${collapsible ? 'brandmark--collapsible' : ''} ${className}`}
+>
+  <Image
+    class="brandmark__full"
+    src={asset}
+    alt={alt}
+    widths={widths}
+    sizes={sizes}
+    loading="eager"
+  />
+  {
+    collapsible && (
+      <Image
+        class="brandmark__compact"
+        src={themes[theme].wordmark}
+        alt={alt}
+        widths={[180, 280, 420]}
+        sizes="(max-width: 40rem) 7rem, 9rem"
+        loading="eager"
+      />
+    )
+  }
+</Wrapper>

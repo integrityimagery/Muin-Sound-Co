@@ -193,7 +193,13 @@ const { pathname } = Astro.props;
       });
 
       item.addEventListener('mouseenter', () => {
-        if (!canHover.matches || isOpen()) return;
+        if (!canHover.matches) return;
+        // Cancel any pending close FIRST, and unconditionally. Returning early
+        // when the menu is already open would leave a close timer from the
+        // previous mouseleave still running, so coming back to a menu you had
+        // just left would close it under you a moment later.
+        window.clearTimeout(closeTimer);
+        if (isOpen()) return;
         all.forEach((d) => d.close());
         setExpanded(true);
         openedByHover = true;
@@ -202,8 +208,9 @@ const { pathname } = Astro.props;
       item.addEventListener('mouseleave', () => {
         // A pinned menu stays until dismissed deliberately.
         if (!canHover.matches || !openedByHover) return;
-        // Grace period so a diagonal trip to the submenu does not close it.
-        closeTimer = window.setTimeout(close, 180);
+        // Generous grace period: this menu is a column of six long titles, and
+        // the trip down to it is neither short nor straight.
+        closeTimer = window.setTimeout(close, 500);
       });
 
       // Tabbing out of the group closes it — but only where the submenu is a

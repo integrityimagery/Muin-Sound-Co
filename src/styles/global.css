@@ -34,8 +34,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  /* Offsets the non-sticky header when jumping to an in-page anchor. */
-  scroll-padding-block-start: 2rem;
+  /* scroll-padding is set with the header rules, where the collapsed height
+     it has to clear is defined. */
 }
 
 body {
@@ -508,13 +508,90 @@ figure {
 
 /* --- Header -------------------------------------------------------------- */
 
-/* Not sticky. Sidesteps the mobile viewport-height budget entirely. */
+/* --- Header --------------------------------------------------------------
+
+   Sticky, and it collapses on scroll. The full header is ~300px tall; pinning
+   that to the top of a phone would eat the screen, so the collapse is what
+   makes sticky affordable. Collapsed it is ~64px, well inside the brief's
+   15%-of-viewport budget, which a11y-test.mjs asserts.
+
+   NOTE: never give this element a `transform`. A transformed ancestor becomes
+   the containing block for `position: fixed` descendants, which would break
+   the off-canvas mobile menu inside it. The collapse animates padding and
+   font-size only, for exactly that reason. */
+
+.header-sentinel {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 1px;
+  height: 6rem;
+  pointer-events: none;
+}
+
 .site-header {
   padding-block: clamp(1.5rem, 1rem + 2vw, 2.75rem) clamp(1rem, 0.75rem + 1vw, 1.75rem);
+  transition:
+    padding 0.22s ease,
+    background-color 0.22s ease;
+}
+
+/* Applied by script. Without JS nothing would collapse it, and a full-height
+   pinned header is worse than one that scrolls away — so no script, no sticky. */
+.site-header[data-sticky='on'] {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 30;
+  background-color: var(--bg);
 }
 
 .site-header--full {
   text-align: center;
+}
+
+/* --- Collapsed state ------------------------------------------------------ */
+
+.brandmark__compact {
+  display: none;
+}
+
+.site-header[data-stuck='true'] {
+  padding-block: 0.6rem;
+  border-block-end: 1px solid var(--border);
+}
+
+/* The centred block becomes the same compact row the story pages use. */
+.site-header--full[data-stuck='true'] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  text-align: start;
+}
+
+.site-header--full[data-stuck='true'] .nav {
+  margin-block-start: 0;
+}
+
+.site-header[data-stuck='true'] .brandmark__full {
+  display: none;
+}
+
+.site-header[data-stuck='true'] .brandmark__compact {
+  display: block;
+  width: clamp(6.5rem, 5rem + 5vw, 9rem);
+  height: auto;
+}
+
+/* Story pages already show the wordmark; collapsing just tightens them. */
+.site-header--compact[data-stuck='true'] .brandmark--wordmark img {
+  width: clamp(6.5rem, 5rem + 5vw, 9rem);
+}
+
+/* Anchor jumps must clear the collapsed header rather than land under it. */
+html {
+  scroll-padding-block-start: 5.5rem;
 }
 
 .brandmark {
@@ -774,6 +851,22 @@ figure {
 }
 
 @media (min-width: 900px) {
+  /* The panel sits half a rem below the nav item, and that gap belongs to
+     neither element — so travelling down into the menu momentarily counts as
+     leaving, and starts the close timer. This invisible bridge spans the gap
+     at the panel's full width, keeping the pointer inside the item the whole
+     way down. Only present while the menu is open, so it never intercepts
+     clicks meant for the page. */
+  .nav__item--has-menu[data-open='true']::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 100%;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    width: 17rem;
+    height: 0.75rem;
+  }
+
   /* Floating panel, using the same arch + double-hairline motif as the cards. */
   .nav__submenu {
     position: absolute;
