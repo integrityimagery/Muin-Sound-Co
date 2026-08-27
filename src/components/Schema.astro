@@ -15,6 +15,7 @@ import { site } from '../data/site';
 import { packages, CURRENCY } from '../data/packages';
 import { faq } from '../data/faq';
 import { themes, DEFAULT_THEME, type Theme } from '../data/themes';
+import { withBase } from '../lib/paths';
 
 interface Props {
   /** Emit Service + Offer entries (homepage and /packages). */
@@ -26,14 +27,27 @@ interface Props {
 
 const { service = false, includeFaq = false, theme = DEFAULT_THEME } = Astro.props;
 
-const abs = (path: string) => new URL(path, site.url).href;
+/* Astro.site is the real deploy origin (set per environment by the build).
+   site.url is only the fallback for a local build with no site configured —
+   using it unconditionally would publish structured data pointing at a domain
+   this deployment is not served from. */
+const origin = (Astro.site?.href ?? site.url).replace(/\/$/, '');
+
+/* Hand-written paths need the base applied before they are made absolute, or
+   they resolve to the domain root and describe pages that do not exist there.
+   withBase is idempotent, so paths Astro has already rewritten (imported image
+   `.src` values) pass through unchanged. */
+const abs = (path: string) => new URL(withBase(path), `${origin}/`).href;
+
+/** The site's own root, base included. Used for @id and Organization.url. */
+const siteRoot = abs('/');
 const logoUrl = abs(themes[theme].lockup.src);
 
 const organization = {
   '@type': 'Organization',
-  '@id': `${site.url}/#organization`,
+  '@id': `${siteRoot}#organization`,
   name: site.name,
-  url: site.url,
+  url: siteRoot,
   description: site.tagline,
   logo: {
     '@type': 'ImageObject',
@@ -47,11 +61,11 @@ const organization = {
 
 const serviceNode = {
   '@type': 'Service',
-  '@id': `${site.url}/#service`,
+  '@id': `${siteRoot}#service`,
   name: 'Custom wedding song writing and production',
   serviceType: 'Custom wedding song',
   description: site.tagline,
-  provider: { '@id': `${site.url}/#organization` },
+  provider: { '@id': `${siteRoot}#organization` },
   // Remote-first: the area served is not geographic.
   areaServed: {
     '@type': 'AdministrativeArea',
@@ -81,7 +95,7 @@ const serviceNode = {
 
 const faqNode = {
   '@type': 'FAQPage',
-  '@id': `${site.url}/#faq`,
+  '@id': `${siteRoot}#faq`,
   mainEntity: faq.map((item) => ({
     '@type': 'Question',
     name: item.q,

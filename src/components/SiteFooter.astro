@@ -7,6 +7,7 @@
  */
 import Brandmark from './Brandmark.astro';
 import { site, nav, muinMeaning } from '../data/site';
+import { withBase } from '../lib/paths';
 import { DEFAULT_THEME, type Theme } from '../data/themes';
 
 interface Props {
@@ -40,7 +41,7 @@ const year = new Date().getFullYear();
         <ul>
           <!-- PLACEHOLDER — replace with the real address. -->
           <li><a href={`mailto:${site.email}`}>{site.email}</a></li>
-          <li><a href="/start/">Start a conversation</a></li>
+          <li><a href={withBase("/start/")}>Start a conversation</a></li>
         </ul>
       </div>
 
@@ -66,7 +67,7 @@ const year = new Date().getFullYear();
           {
             nav.map((item) => (
               <li>
-                <a href={item.href}>{item.label}</a>
+                <a href={withBase(item.href)}>{item.label}</a>
               </li>
             ))
           }

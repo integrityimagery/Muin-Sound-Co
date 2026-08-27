@@ -12,7 +12,10 @@
  * Never autoplays.
  */
 
+import { withBase } from '../lib/paths';
+
 interface Props {
+  /** Root-absolute path under /public. Based automatically. */
   src: string;
   /** Used to build accessible names: "Play {label}". */
   label: string;
@@ -23,6 +26,10 @@ interface Props {
 }
 
 const { src, label, caption, duration, class: className = '' } = Astro.props;
+
+// /public assets are not rewritten by Astro the way imported ones are, so the
+// base path has to be applied here or the audio 404s on a project site.
+const audioSrc = withBase(src);
 ---
 
 <div class={`player ${className}`} data-player>
@@ -34,11 +41,11 @@ const { src, label, caption, duration, class: className = '' } = Astro.props;
     data-player-native
     controls
     preload="metadata"
-    src={src}
+    src={audioSrc}
   >
     <p>
       Your browser cannot play this audio.
-      <a href={src} download>Download the track</a> instead.
+      <a href={audioSrc} download>Download the track</a> instead.
     </p>
   </audio>
 

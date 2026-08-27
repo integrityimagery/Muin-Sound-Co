@@ -9,7 +9,7 @@
  */
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:4321';
+const BASE = process.env.PREVIEW_BASE || 'http://localhost:4321';
 // Let Playwright resolve its own browser by default; CHROMIUM_PATH is only
 // needed in sandboxes that ship a browser outside Playwright's cache.
 const EXE = process.env.CHROMIUM_PATH || undefined;

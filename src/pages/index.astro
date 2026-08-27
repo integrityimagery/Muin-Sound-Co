@@ -8,6 +8,7 @@ import { storyTiles } from '../data/stories';
 import { processSteps } from '../data/stories';
 import { tracks } from '../data/tracks';
 import { packages } from '../data/packages';
+import { withBase } from '../lib/paths';
 
 /**
  * The homepage tiles preview each story page's `weight` knob typographically.
@@ -65,7 +66,7 @@ const listenTracks = tracks.slice(0, 3);
         storyTiles.map((tile) => (
           <li>
             <a
-              href={`/stories/${tile.slug}/`}
+              href={withBase(`/stories/${tile.slug}/`)}
               class={`panel tile tile--${tile.weight}`}
               data-theme-hint={tile.theme}
             >
@@ -143,7 +144,7 @@ const listenTracks = tracks.slice(0, 3);
       }
     </ul>
     <p class="actions">
-      <a class="btn btn--ghost" href="/listen/">Hear more</a>
+      <a class="btn btn--ghost" href={withBase("/listen/")}>Hear more</a>
     </p>
   </Section>
 
@@ -179,7 +180,7 @@ const listenTracks = tracks.slice(0, 3);
     </ul>
 
     <p class="actions">
-      <a class="btn btn--ghost" href="/packages/">Full package details</a>
+      <a class="btn btn--ghost" href={withBase("/packages/")}>Full package details</a>
     </p>
   </Section>
 
@@ -233,7 +234,7 @@ const listenTracks = tracks.slice(0, 3);
         turnaround details are on the partner page.
       </p>
       <p class="actions">
-        <a href="/photographers/">Working together</a>
+        <a href={withBase("/photographers/")}>Working together</a>
       </p>
     </div>
   </Section>

@@ -26,7 +26,40 @@ npm run verify       # contrast + types + build + post-build audit
 | `npm run audit` | Post-build audit of `dist/` (needs a build first) |
 | `npm run test:a11y` | Browser behaviour tests (needs `npm run preview` running) |
 | `npm run verify` | The first four, in order |
+| `PREVIEW_BASE=... npm run test:a11y` | Point the browser tests at another origin |
 | `npm run audio` | Regenerates the placeholder audio |
+
+---
+
+## Deploying
+
+Pushes to `main` (or the current feature branch) build and publish to GitHub
+Pages via `.github/workflows/deploy.yml`. The workflow runs `contrast`, `check`
+and `audit` first, so a contrast regression or a dead link fails the deploy
+rather than shipping.
+
+**One-time setup:** repo **Settings → Pages → Build and deployment → Source:
+GitHub Actions**. Nothing else to configure — the workflow derives the URL and
+base path from the repository itself.
+
+### Base paths
+
+Pages serves this as a *project site*, at `/<repo>/` rather than the domain
+root. Astro rewrites the URLs it generates (routes, imported images), but not
+paths written by hand — those would work in local dev and 404 after deploy,
+which is the worst kind of bug to catch late. Two things close that gap:
+
+- `src/lib/paths.ts` — `withBase()`, for every hand-written `href` and every
+  `/public` asset path (the audio files).
+- The `rehypeBasePaths` plugin in `astro.config.mjs` — for internal links in
+  markdown body copy, so `[video consult](/start/)` keeps working.
+
+`npm run audit` fails if any internal link is missing the base, so this cannot
+silently regress. With no base configured both are no-ops and local dev is
+unaffected.
+
+Moving to a custom domain later: set the domain in repo settings, add a
+`public/CNAME`, and the base becomes `/` — no source changes needed.
 
 ---
 

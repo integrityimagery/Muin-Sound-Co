@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Section from '../components/Section.astro';
 import { nav } from '../data/site';
+import { withBase } from '../lib/paths';
 ---
 
 <Base
@@ -16,7 +17,7 @@ import { nav } from '../data/site';
       {
         nav.map((item) => (
           <li>
-            <a href={item.href}>{item.label}</a>
+            <a href={withBase(item.href)}>{item.label}</a>
           </li>
         ))
       }

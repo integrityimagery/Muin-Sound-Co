@@ -1,0 +1,69 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/image-assets-folder-2tm1x3
+  workflow_dispatch:
+
+# Allow one concurrent deployment; a newer push supersedes an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Project sites are served from /<repo>/, so the build needs to know its
+      # own base path. Both values are derived from the repository rather than
+      # hardcoded, so a rename or a fork does not silently produce dead links.
+      - name: Resolve Pages URLs
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Verify
+        run: npm run contrast && npm run check
+
+      - name: Build
+        env:
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: npm run build
+
+      # The post-build audit checks heading hierarchy, unique metadata, JSON-LD
+      # matching visible text, dead internal links, alt text and stylesheet
+      # discipline. A failure here should stop the deploy, not ship.
+      - name: Audit build output
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: npm run audit
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

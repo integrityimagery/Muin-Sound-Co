@@ -18,6 +18,7 @@ import AudioPlayer from '../components/AudioPlayer.astro';
 import PlaceholderFigure from '../components/PlaceholderFigure.astro';
 import type { Theme } from '../data/themes';
 import type { StoryWeight } from '../data/stories';
+import { withBase } from '../lib/paths';
 
 export type StoryHero = 'photo' | 'type' | 'audio';
 
@@ -139,8 +140,8 @@ const {
             {ctaBody ?? 'If this sounds like your wedding, the next step is a short form and one conversation.'}
           </p>
           <p class="actions">
-            <a class="btn btn--primary" href={ctaHref}>{ctaLabel}</a>
-            <a class="btn btn--ghost" href="/stories/">Read another story</a>
+            <a class="btn btn--primary" href={withBase(ctaHref)}>{ctaLabel}</a>
+            <a class="btn btn--ghost" href={withBase("/stories/")}>Read another story</a>
           </p>
         </div>
       </div>

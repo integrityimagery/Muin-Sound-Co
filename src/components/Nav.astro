@@ -7,6 +7,7 @@
  * is only ever one set of links in the accessibility tree.
  */
 import { nav, isCurrent } from '../data/site';
+import { withBase } from '../lib/paths';
 
 interface Props {
   /** Current pathname, for aria-current. */
@@ -33,11 +34,11 @@ const { pathname } = Astro.props;
     <ul class="nav__list">
       {
         nav.map((item) => {
-          const current = isCurrent(item.href, pathname);
+          const current = isCurrent(withBase(item.href), pathname);
           return (
             <li>
               <a
-                href={item.href}
+                href={withBase(item.href)}
                 class={item.primary ? 'btn btn--primary nav__cta' : 'nav__link'}
                 aria-current={current ? 'page' : undefined}
               >

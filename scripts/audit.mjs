@@ -16,6 +16,13 @@ import { faq } from '../src/data/faq.ts';
 const DIST = new URL('../dist', import.meta.url).pathname;
 const SRC_CSS = new URL('../src/styles/global.css', import.meta.url).pathname;
 
+/* On GitHub Pages the site lives at /<repo>/, so every emitted href carries
+   that prefix while the files on disk do not. Strip it before resolving. */
+const RAW_BASE = process.env.BASE_PATH ?? '/';
+const BASE = RAW_BASE.endsWith('/') ? RAW_BASE.slice(0, -1) : RAW_BASE;
+const unbase = (href) =>
+  BASE && href.startsWith(`${BASE}/`) ? href.slice(BASE.length) : href;
+
 let failures = 0;
 const fail = (msg) => {
   failures++;
@@ -175,13 +182,17 @@ console.log('\n\x1b[1mInternal links\x1b[0m');
     for (const href of hrefs) {
       if (seen.has(href)) continue;
       seen.add(href);
+      const local = unbase(href);
       const candidates = [
-        join(DIST, href),
-        join(DIST, href, 'index.html'),
-        join(DIST, href.replace(/\/$/, '') + '.html'),
+        join(DIST, local),
+        join(DIST, local, 'index.html'),
+        join(DIST, local.replace(/\/$/, '') + '.html'),
       ];
       if (!candidates.some((c) => existsSync(c))) {
         fail(`dead internal link: ${href} (first seen on ${p.rel})`);
+        bad++;
+      } else if (BASE && !href.startsWith(`${BASE}/`)) {
+        fail(`link is missing the base path: ${href} (on ${p.rel})`);
         bad++;
       }
     }
@@ -230,7 +241,7 @@ console.log('\n\x1b[1mAudio\x1b[0m');
         bad++;
       }
       const src = tag.match(/\ssrc="([^"]+)"/)?.[1];
-      if (src && !existsSync(join(DIST, src))) {
+      if (src && !existsSync(join(DIST, unbase(src)))) {
         fail(`${p.rel} references a missing audio file: ${src}`);
         bad++;
       }

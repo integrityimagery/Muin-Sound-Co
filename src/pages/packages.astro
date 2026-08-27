@@ -2,6 +2,7 @@
 /** Stub — the full page is coming. */
 import Base from '../layouts/Base.astro';
 import Section from '../components/Section.astro';
+import { withBase } from '../lib/paths';
 import { packages } from '../data/packages';
 ---
 
@@ -16,7 +17,7 @@ import { packages } from '../data/packages';
     <!-- PLACEHOLDER — this page is coming. -->
     <p class="lede">This page is coming. The three tiers below are the shape of it; full inclusions, revision policy and turnaround will be spelled out here.</p>
     <p class="actions">
-      <a class="btn btn--primary" href="/start/">Start here</a>
+      <a class="btn btn--primary" href={withBase("/start/")}>Start here</a>
     </p>
   </Section>
 

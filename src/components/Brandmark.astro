@@ -9,6 +9,7 @@
 import { Image } from 'astro:assets';
 import { themes, DEFAULT_THEME, type Theme } from '../data/themes';
 import { site } from '../data/site';
+import { withBase } from '../lib/paths';
 
 interface Props {
   theme?: Theme;
@@ -41,7 +42,7 @@ const sizes =
 
 {
   asLink ? (
-    <a href="/" class={`brandmark brandmark--${variant} ${className}`}>
+    <a href={withBase("/")} class={`brandmark brandmark--${variant} ${className}`}>
       <Image src={asset} alt={alt} widths={widths} sizes={sizes} loading="eager" />
     </a>
   ) : (
