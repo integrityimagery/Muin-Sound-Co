@@ -135,6 +135,10 @@ console.log('\n\x1b[1mDesktop navigation (1280px)\x1b[0m');
   const storyNav = page.locator('.nav__list > li > a');
   check(await storyNav.first().isVisible(), 'story pages still show the nav on desktop');
   check(!(await page.locator('[data-nav-toggle]').isVisible()), 'story pages do not use a desktop hamburger');
+  check(
+    (await page.locator('.brandmark--collapsible').count()) === 1,
+    'story pages use the same collapsible lockup as everywhere else'
+  );
 
   await page.close();
 }
@@ -678,6 +682,116 @@ console.log('\n\x1b[1mSticky header\x1b[0m');
   );
 
   await page.close();
+}
+
+
+/* --- Header parity across page types ---------------------------------------
+   One header, identical everywhere. Story pages used to have their own
+   variant, so this pins the behaviour down rather than trusting it. */
+
+console.log('\n\x1b[1mHeader parity across page types\x1b[0m');
+{
+  const routes = [
+    ['home', '/'],
+    ['base', '/about/'],
+    ['listen', '/listen/'],
+    ['story (grove/photo)', '/stories/the-woods-called/'],
+    ['story (plum/loud)', '/stories/the-defiant-ones/'],
+    ['story (hearth/quiet)', '/stories/the-quiet-ones/'],
+  ];
+
+  const shapes = [];
+
+  for (const [label, route] of routes) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.goto(BASE + route, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(400);
+
+    const expanded = await page.evaluate(() => {
+      const h = document.querySelector('[data-header]');
+      const full = document.querySelector('.brandmark__full');
+      const box = document.querySelector('.brandmark--collapsible');
+      return {
+        fixed: h?.dataset.fixed,
+        stuck: h?.dataset.stuck,
+        hasCollapsibleMark: !!box,
+        fullOpacity: full ? Number(getComputedStyle(full).opacity) : null,
+        centred: box
+          ? Math.abs(box.getBoundingClientRect().x + box.getBoundingClientRect().width / 2 -
+              window.innerWidth / 2) <= 1
+          : null,
+        navVisible: !!document.querySelector('.nav__list > li > a')?.checkVisibility(),
+        spacerMatches:
+          Math.abs(
+            document.querySelector('[data-header-spacer]').getBoundingClientRect().height -
+              h.getBoundingClientRect().height
+          ) < 1,
+      };
+    });
+
+    check(
+      expanded.fixed === 'on' &&
+        expanded.hasCollapsibleMark &&
+        expanded.fullOpacity === 1 &&
+        expanded.centred === true &&
+        expanded.navVisible &&
+        expanded.spacerMatches,
+      `${label}: expanded header is the standard one`,
+      JSON.stringify(expanded)
+    );
+
+    const beforeY = await page.evaluate(() =>
+      Math.round(document.querySelector('main').getBoundingClientRect().top + window.scrollY)
+    );
+
+    await page.evaluate(() => window.scrollTo(0, 1000));
+    await page.waitForTimeout(700);
+
+    const collapsed = await page.evaluate(() => {
+      const h = document.querySelector('[data-header]');
+      const r = h.getBoundingClientRect();
+      const box = document.querySelector('.brandmark--collapsible').getBoundingClientRect();
+      return {
+        stuck: h.dataset.stuck,
+        top: Math.round(r.top),
+        height: Math.round(r.height),
+        fullOpacity: Number(getComputedStyle(document.querySelector('.brandmark__full')).opacity),
+        compactOpacity: Number(
+          getComputedStyle(document.querySelector('.brandmark__compact')).opacity
+        ),
+        centred: Math.abs(box.x + box.width / 2 - window.innerWidth / 2) <= 1,
+        transform: getComputedStyle(h).transform,
+      };
+    });
+
+    const afterY = await page.evaluate(() =>
+      Math.round(document.querySelector('main').getBoundingClientRect().top + window.scrollY)
+    );
+
+    check(
+      collapsed.stuck === 'true' &&
+        collapsed.top === 0 &&
+        collapsed.fullOpacity === 0 &&
+        collapsed.compactOpacity === 1 &&
+        collapsed.centred &&
+        collapsed.transform === 'none',
+      `${label}: collapses to the centred wordmark`,
+      JSON.stringify(collapsed)
+    );
+
+    check(beforeY === afterY, `${label}: content does not shift on collapse`, `${beforeY} -> ${afterY}`);
+
+    shapes.push({ label, height: collapsed.height });
+    await page.close();
+  }
+
+  // Every page should settle to the same collapsed height.
+  const heights = [...new Set(shapes.map((s) => s.height))];
+  check(
+    heights.length === 1,
+    'every page type collapses to the same header height',
+    shapes.map((s) => `${s.label}=${s.height}px`).join(', ')
+  );
 }
 
 /* --- No-JS fallback -------------------------------------------------------- */

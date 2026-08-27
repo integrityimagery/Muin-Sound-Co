@@ -25,7 +25,6 @@ interface Props {
   description: string;
   theme?: Theme;
   weight?: StoryWeight;
-  headerVariant?: 'full' | 'compact';
   markIsLink?: boolean;
   /** Emit Service + Offer structured data. */
   schemaService?: boolean;
@@ -39,7 +38,6 @@ const {
   description,
   theme = DEFAULT_THEME,
   weight = 'standard',
-  headerVariant = 'full',
   markIsLink = true,
   schemaService = false,
   schemaFaq = false,
@@ -85,7 +83,6 @@ const fullTitle = pathname === '/' ? title : `${title} — ${site.name}`;
     <a class="skip-link" href="#main-content">Skip to content</a>
 
     <SiteHeader
-      variant={headerVariant}
       theme={theme}
       pathname={pathname}
       markIsLink={markIsLink}

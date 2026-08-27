@@ -578,7 +578,7 @@ figure {
   background-color: var(--bg);
 }
 
-.site-header--full {
+.site-header {
   text-align: center;
 }
 
@@ -654,13 +654,8 @@ figure {
 
 /* The brand stays centred above the nav in both states — it never jumps to a
    corner. Only the spacing tightens. */
-.site-header--full[data-stuck='true'] .nav {
+.site-header[data-stuck='true'] .nav {
   margin-block-start: 0.45rem;
-}
-
-/* Story pages already show the wordmark; collapsing just tightens them. */
-.site-header--compact[data-stuck='true'] .brandmark--wordmark img {
-  width: clamp(6.5rem, 5rem + 5vw, 9rem);
 }
 
 /* Below the nav breakpoint the "nav" is a single hamburger, and stacking it
@@ -668,15 +663,15 @@ figure {
    screen, over the brief's budget. Lifting it out of the stack and centring it
    against the mark keeps the wordmark centred AND the header short. */
 @media (max-width: 899px) {
-  .site-header--full[data-stuck='true'] .site-header__inner {
+  .site-header[data-stuck='true'] .site-header__inner {
     position: relative;
   }
 
-  .site-header--full[data-stuck='true'] .nav {
+  .site-header[data-stuck='true'] .nav {
     margin-block-start: 0;
   }
 
-  .site-header--full[data-stuck='true'] .nav__toggle {
+  .site-header[data-stuck='true'] .nav__toggle {
     position: absolute;
     inset-block-start: 50%;
     inset-inline-end: 0;
@@ -701,9 +696,6 @@ html {
   margin-block-start: 1.25rem;
 }
 
-.site-header--compact .nav {
-  margin-block-start: 0;
-}
 
 .nav__toggle {
   display: none;
@@ -845,9 +837,6 @@ html {
   transform: rotate(180deg);
 }
 
-.site-header--compact .nav__disclosure {
-  color: var(--muted);
-}
 
 .nav__submenu {
   list-style: none;
@@ -898,13 +887,19 @@ html {
    with a marker rather than colour. Distinct from aria-current="page". */
 .nav__link[aria-current='true'] {
   font-weight: 700;
+  position: relative;
 }
 
+/* Absolutely positioned, so the marker cannot change the nav's height. As a
+   block-level ::after it added 4px to whichever item was the current section,
+   which made story pages' collapsed header 3px taller than everywhere else —
+   a difference the header-parity test caught. */
 .nav__link[aria-current='true']::after {
   content: '';
-  display: block;
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0.15em;
   height: 2px;
-  margin-block-start: 2px;
   background-color: var(--vine-leaf);
   border-radius: 1px;
 }

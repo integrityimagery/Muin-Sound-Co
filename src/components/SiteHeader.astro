@@ -2,14 +2,15 @@
 /**
  * Site header.
  *
- * Two presentations of the same markup:
- *   full    — centred lockup with the nav beneath. Home, Base, Listen.
- *   compact — smaller wordmark, nav inline and de-emphasised. Story pages,
- *             so the hero lands first.
+ * ONE header, identical on every page including the story pages: centred
+ * lockup with the nav beneath, collapsing to the centred wordmark on scroll.
  *
- * The nav is identical in both. On story pages it is toned down visually; it
- * is never removed, never hidden behind a desktop hamburger, and stays fully
- * keyboard reachable.
+ * This supersedes the brief's story-page variation (a smaller wordmark with a
+ * de-emphasised nav, so the hero landed first). Consistency was chosen over
+ * that: one header means one behaviour to learn and one thing to maintain.
+ *
+ * The nav is never removed, never hidden behind a desktop hamburger, and stays
+ * fully keyboard reachable.
  *
  * FIXED, not sticky, with a spacer holding its expanded height. A sticky
  * header is still in the document flow, so shrinking it on scroll pulls every
@@ -22,7 +23,6 @@ import Nav from './Nav.astro';
 import { DEFAULT_THEME, type Theme } from '../data/themes';
 
 interface Props {
-  variant?: 'full' | 'compact';
   theme?: Theme;
   pathname: string;
   /** On the homepage the lockup is the hero mark, not a link to itself. */
@@ -30,7 +30,6 @@ interface Props {
 }
 
 const {
-  variant = 'full',
   theme = DEFAULT_THEME,
   pathname,
   markIsLink = true,
@@ -46,7 +45,7 @@ const {
 <div class="header-sentinel" aria-hidden="true" data-header-sentinel></div>
 
 <header
-  class={`site-header site-header--${variant}`}
+  class="site-header"
   data-header
   data-stuck="false"
 >
@@ -54,9 +53,9 @@ const {
     <div class="site-header__brand">
       <Brandmark
         theme={theme}
-        variant={variant === 'full' ? 'lockup' : 'wordmark'}
+        variant="lockup"
         asLink={markIsLink}
-        collapsible={variant === 'full'}
+        collapsible
       />
     </div>
     <Nav pathname={pathname} />
