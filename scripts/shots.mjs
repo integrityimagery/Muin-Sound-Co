@@ -34,7 +34,7 @@ for (const [name, path, w, h, full] of targets) {
 {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: 'Menu' }).click();
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${OUT}/menu-open.png` });
   await page.close();

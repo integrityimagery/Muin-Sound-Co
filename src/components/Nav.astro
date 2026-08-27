@@ -5,8 +5,18 @@
  * One <nav>, one list, no duplicated markup — CSS switches the same list
  * between an inline bar (>=900px) and an off-canvas panel (<900px), so there
  * is only ever one set of links in the accessibility tree.
+ *
+ * Items with children follow the "disclosure navigation with top-level links"
+ * pattern: a real link to the section, plus a SEPARATE small toggle button
+ * beside it. Making the parent itself the toggle is the common shortcut and it
+ * costs you the link — /stories/ is a real page and has to stay reachable,
+ * including on touch, where there is no hover to reveal anything.
+ *
+ * Deliberately not role="menu"/menuitem: that maps to application menus and
+ * asks for arrow-key semantics users do not expect from site navigation. A
+ * list of links is what this is.
  */
-import { nav, isCurrent } from '../data/site';
+import { nav, isCurrent, isCurrentSection } from '../data/site';
 import { withBase } from '../lib/paths';
 
 interface Props {
@@ -33,17 +43,67 @@ const { pathname } = Astro.props;
     <button type="button" class="nav__close" data-nav-close>Close</button>
     <ul class="nav__list">
       {
-        nav.map((item) => {
+        nav.map((item, i) => {
           const current = isCurrent(withBase(item.href), pathname);
+          const inSection = isCurrentSection(withBase(item.href), pathname);
+          const menuId = `nav-submenu-${i}`;
+
           return (
-            <li>
+            <li class={item.children ? 'nav__item nav__item--has-menu' : 'nav__item'}>
               <a
                 href={withBase(item.href)}
                 class={item.primary ? 'btn btn--primary nav__cta' : 'nav__link'}
-                aria-current={current ? 'page' : undefined}
+                aria-current={current ? 'page' : inSection ? 'true' : undefined}
               >
                 {item.label}
               </a>
+
+              {item.children && (
+                <>
+                  <button
+                    type="button"
+                    class="nav__disclosure"
+                    aria-expanded="false"
+                    aria-controls={menuId}
+                    data-nav-disclosure
+                  >
+                    {/* The button needs its own name — the adjacent link's text
+                        is not it, and "expand" alone says nothing. */}
+                    <span class="visually-hidden">{item.label} submenu</span>
+                    <svg
+                      class="nav__chevron"
+                      viewBox="0 0 12 8"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path
+                        d="M1 1.5 L6 6.5 L11 1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+
+                  <ul class="nav__submenu" id={menuId} data-nav-submenu hidden>
+                    {item.children.map((child) => (
+                      <li>
+                        <a
+                          href={withBase(child.href)}
+                          class="nav__sublink"
+                          aria-current={
+                            isCurrent(withBase(child.href), pathname) ? 'page' : undefined
+                          }
+                        >
+                          {child.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </li>
           );
         })
@@ -54,20 +114,131 @@ const { pathname } = Astro.props;
 
 <script>
   /**
-   * Off-canvas menu behaviour.
+   * Off-canvas menu behaviour, plus the Stories disclosure.
    *
-   * The menu only exists below 900px; above that the same list is an inline
-   * bar and none of this runs. Three things have to be true while it is open:
-   * focus cannot leave it, Escape closes it, and the rest of the page is
-   * hidden from assistive tech.
-   *
-   * `inert` does the third and most of the first. The explicit Tab wrap is
-   * belt-and-braces for the panel's own edges.
+   * The off-canvas menu only exists below 900px; above that the same list is an
+   * inline bar. Three things have to be true while it is open: focus cannot
+   * leave it, Escape closes it, and the rest of the page is hidden from
+   * assistive tech. `inert` does the third and most of the first; the explicit
+   * Tab wrap is belt-and-braces for the panel's own edges.
    */
   const FOCUSABLE =
     'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
+  /* ---------------------------------------------------------------------
+     Submenu disclosures
+     --------------------------------------------------------------------- */
+
+  const setupDisclosures = (root: HTMLElement) => {
+    const items = root.querySelectorAll<HTMLElement>('.nav__item--has-menu');
+
+    // Hover-to-open is an enhancement for pointer devices on the wide layout
+    // only. It drives the SAME open/close function as click, so aria-expanded
+    // always reflects reality — a CSS-only :hover rule would leave the button
+    // claiming to be collapsed while its menu is on screen.
+    const canHover = window.matchMedia('(hover: hover) and (min-width: 900px)');
+
+    /* Above this width the submenu is an absolutely-positioned dropdown; below
+       it, an inline list inside the off-canvas panel. The two want different
+       dismissal rules, so the layout breakpoint has to be readable here. */
+    const isFloating = window.matchMedia('(min-width: 900px)');
+
+    const all: { close: () => void; isOpen: () => boolean; focusButton: () => void }[] =
+      [];
+
+    items.forEach((item) => {
+      const button = item.querySelector<HTMLButtonElement>('[data-nav-disclosure]');
+      const menu = item.querySelector<HTMLElement>('[data-nav-submenu]');
+      if (!button || !menu) return;
+
+      let closeTimer: number | undefined;
+
+      /**
+       * Whether this menu is open only because the pointer is over it.
+       *
+       * Without this, hover and click fight each other: moving the mouse to the
+       * chevron opens the menu, and the click that follows finds it already
+       * open and closes it again — so with a mouse, clicking could never open
+       * anything. Tracking the cause makes the two gestures compose instead:
+       * hover opens it transiently, a click pins it, and only a hover-opened
+       * menu closes itself when the pointer leaves.
+       */
+      let openedByHover = false;
+
+      const setExpanded = (next: boolean) => {
+        window.clearTimeout(closeTimer);
+        button.setAttribute('aria-expanded', String(next));
+        menu.hidden = !next;
+        item.dataset.open = String(next);
+        if (!next) openedByHover = false;
+      };
+
+      const close = () => setExpanded(false);
+      const isOpen = () => button.getAttribute('aria-expanded') === 'true';
+
+      all.push({ close, isOpen, focusButton: () => button.focus() });
+
+      button.addEventListener('click', () => {
+        if (isOpen()) {
+          // Pin a hover-opened menu rather than immediately closing it.
+          if (openedByHover) {
+            openedByHover = false;
+            return;
+          }
+          close();
+          return;
+        }
+        all.forEach((d) => d.close()); // one open submenu at a time
+        setExpanded(true);
+      });
+
+      item.addEventListener('mouseenter', () => {
+        if (!canHover.matches || isOpen()) return;
+        all.forEach((d) => d.close());
+        setExpanded(true);
+        openedByHover = true;
+      });
+
+      item.addEventListener('mouseleave', () => {
+        // A pinned menu stays until dismissed deliberately.
+        if (!canHover.matches || !openedByHover) return;
+        // Grace period so a diagonal trip to the submenu does not close it.
+        closeTimer = window.setTimeout(close, 180);
+      });
+
+      // Tabbing out of the group closes it — but only where the submenu is a
+      // floating dropdown. In the off-canvas panel it is an inline list, and
+      // collapsing it the moment focus moves to the next item would undo the
+      // expansion the user just asked for. focusout fires before the new
+      // element is focused, hence relatedTarget.
+      item.addEventListener('focusout', (e) => {
+        if (!isFloating.matches) return;
+        const next = (e as FocusEvent).relatedTarget as Node | null;
+        if (next && item.contains(next)) return;
+        close();
+      });
+    });
+
+    // A click anywhere else dismisses an open submenu.
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.nav__item--has-menu')) return;
+      all.forEach((d) => d.close());
+    });
+
+    // Leaving the hover breakpoint should not strand a menu opened by hover.
+    canHover.addEventListener('change', () => all.forEach((d) => d.close()));
+
+    return all;
+  };
+
+  /* ---------------------------------------------------------------------
+     Off-canvas panel
+     --------------------------------------------------------------------- */
+
   const setup = (root: HTMLElement) => {
+    const disclosures = setupDisclosures(root);
+
     const toggle = root.querySelector<HTMLButtonElement>('[data-nav-toggle]');
     const panel = root.querySelector<HTMLElement>('[data-nav-panel]');
     const closeBtn = root.querySelector<HTMLButtonElement>('[data-nav-close]');
@@ -95,6 +266,7 @@ const { pathname } = Astro.props;
       if (next) {
         panel.querySelector<HTMLElement>(FOCUSABLE)?.focus();
       } else {
+        disclosures?.forEach((d) => d.close());
         toggle.focus();
       }
     };
@@ -103,21 +275,38 @@ const { pathname } = Astro.props;
     closeBtn?.addEventListener('click', () => setOpen(false));
 
     // Following a link unmounts the page anyway, but same-page hashes would
-    // otherwise leave the menu covering the destination.
+    // otherwise leave the menu covering the destination. The disclosure button
+    // is not a link and must not close the panel.
     panel.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('a')) setOpen(false);
     });
 
+    /* Escape is handled in one place for the whole nav, at document level.
+       Listening on the button and the submenu individually only works when
+       focus happens to be on one of them — press Escape from any other link in
+       the open panel and nothing happens at all. */
     document.addEventListener('keydown', (e) => {
-      if (!open) return;
-
       if (e.key === 'Escape') {
-        e.preventDefault();
-        setOpen(false);
+        // An open submenu takes the first Escape, wherever focus is.
+        const expanded = disclosures?.find((d) => d.isOpen());
+        if (expanded) {
+          e.preventDefault();
+          const inside = (document.activeElement as HTMLElement | null)?.closest(
+            '.nav__item--has-menu'
+          );
+          expanded.close();
+          // Only pull focus back if it was inside the thing that just closed.
+          if (inside) expanded.focusButton();
+          return;
+        }
+        if (open) {
+          e.preventDefault();
+          setOpen(false);
+        }
         return;
       }
 
-      if (e.key !== 'Tab') return;
+      if (!open || e.key !== 'Tab') return;
 
       const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
         (el) => el.offsetParent !== null

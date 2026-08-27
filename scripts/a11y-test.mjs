@@ -31,7 +31,7 @@ console.log('\n\x1b[1mMobile navigation (390px)\x1b[0m');
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
 
-  const toggle = page.getByRole('button', { name: 'Menu' });
+  const toggle = page.getByRole('button', { name: 'Menu', exact: true });
   check(await toggle.isVisible(), 'hamburger toggle is visible below 900px');
   check(
     (await toggle.getAttribute('aria-expanded')) === 'false',
@@ -101,8 +101,9 @@ console.log('\n\x1b[1mDesktop navigation (1280px)\x1b[0m');
   const toggle = page.locator('[data-nav-toggle]');
   check(!(await toggle.isVisible()), 'no hamburger on desktop');
 
-  const navLinks = page.locator('.nav__list a');
-  check((await navLinks.count()) === 6, 'all six nav items are present', `found ${await navLinks.count()}`);
+  // Direct children only — submenu links live inside .nav__list too.
+  const navLinks = page.locator('.nav__list > li > a');
+  check((await navLinks.count()) === 6, 'all six top-level nav items are present', `found ${await navLinks.count()}`);
 
   const current = page.locator('[aria-current="page"]');
   check((await current.count()) === 1, 'exactly one aria-current="page"');
@@ -131,7 +132,7 @@ console.log('\n\x1b[1mDesktop navigation (1280px)\x1b[0m');
 
   // Story pages keep the nav reachable rather than hiding it.
   await page.goto(BASE + '/stories/the-woods-called/', { waitUntil: 'networkidle' });
-  const storyNav = page.locator('.nav__list a');
+  const storyNav = page.locator('.nav__list > li > a');
   check(await storyNav.first().isVisible(), 'story pages still show the nav on desktop');
   check(!(await page.locator('[data-nav-toggle]').isVisible()), 'story pages do not use a desktop hamburger');
 
@@ -253,6 +254,191 @@ console.log('\n\x1b[1mFocus indicator (keyboard)\x1b[0m');
     return getComputedStyle(el).outlineStyle;
   });
   check(hoverRing === 'none', 'hover alone does not draw a focus ring', hoverRing);
+
+  await page.close();
+}
+
+
+/* --- Stories submenu -------------------------------------------------------
+   The parent is a real link AND a disclosure. Both have to keep working, and
+   the toggle's aria-expanded must never disagree with what is on screen. */
+
+console.log('\n\x1b[1mStories submenu (desktop)\x1b[0m');
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+
+  const item = page.locator('.nav__item--has-menu').first();
+  const link = item.locator('.nav__link').first();
+  const toggle = item.locator('[data-nav-disclosure]').first();
+  const menu = item.locator('[data-nav-submenu]').first();
+
+  check(
+    (await link.getAttribute('href'))?.endsWith('/stories/') ?? false,
+    'parent is still a real link to the stories index',
+    (await link.getAttribute('href')) ?? ''
+  );
+  check(
+    ((await toggle.evaluate((el) => el.textContent?.trim())) ?? '').length > 3,
+    'disclosure button has its own accessible name',
+    await toggle.evaluate((el) => el.textContent?.trim())
+  );
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'false' && !(await menu.isVisible()),
+    'submenu starts collapsed, and aria-expanded agrees'
+  );
+
+  await toggle.click();
+  await page.waitForTimeout(150);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'true' && (await menu.isVisible()),
+    'clicking the toggle opens the submenu, and aria-expanded agrees'
+  );
+  check(
+    (await menu.locator('a').count()) === 6,
+    'submenu lists all six stories',
+    `${await menu.locator('a').count()} links`
+  );
+
+  const hrefs = await menu.locator('a').evaluateAll((els) =>
+    els.map((el) => el.getAttribute('href'))
+  );
+  check(
+    hrefs.every((h) => h && h.includes('/stories/') && h !== null),
+    'every submenu link points at a story page'
+  );
+
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'false' && !(await menu.isVisible()),
+    'Escape closes the submenu'
+  );
+
+  // Reopen, then click elsewhere.
+  await toggle.click();
+  await page.waitForTimeout(150);
+  await page.locator('h1').first().click();
+  await page.waitForTimeout(150);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'false',
+    'clicking outside closes the submenu'
+  );
+
+  // Hover is an enhancement, but it must keep aria-expanded honest.
+  await item.hover();
+  await page.waitForTimeout(200);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'true' && (await menu.isVisible()),
+    'hover opens the submenu without aria-expanded going stale'
+  );
+
+  // Keyboard: the toggle must be reachable and operable by Tab + Enter.
+  // Park the pointer away from the nav first, or the hover path opens the menu
+  // before the keyboard ever touches it and we would not be testing keyboard.
+  await page.mouse.move(0, 700);
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await page.mouse.move(0, 700);
+  let reached = false;
+  for (let i = 0; i < 12 && !reached; i++) {
+    await page.keyboard.press('Tab');
+    reached = await page.evaluate(
+      () => document.activeElement?.matches('[data-nav-disclosure]') ?? false
+    );
+  }
+  check(reached, 'disclosure toggle is reachable by Tab');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(150);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'true',
+    'Enter on the focused toggle opens the submenu'
+  );
+  // Tabbing out of the group closes it.
+  for (let i = 0; i < 8; i++) await page.keyboard.press('Tab');
+  await page.waitForTimeout(200);
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'false',
+    'tabbing out of the group closes the submenu'
+  );
+
+  await page.close();
+}
+
+console.log('\n\x1b[1mStories submenu (current-page marking)\x1b[0m');
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(BASE + '/stories/the-woods-called/', { waitUntil: 'networkidle' });
+
+  const pageCurrent = page.locator('[aria-current="page"]');
+  check(
+    (await pageCurrent.count()) === 1,
+    'exactly one aria-current="page" on a story page',
+    `${await pageCurrent.count()}`
+  );
+  check(
+    (await pageCurrent.first().getAttribute('class'))?.includes('nav__sublink') ?? false,
+    'aria-current="page" is on the submenu entry for this story'
+  );
+
+  const section = page.locator('.nav__link[aria-current="true"]');
+  check(
+    (await section.count()) === 1 &&
+      (await section.first().textContent())?.trim() === 'Stories',
+    'the Stories parent is marked as the current section, not as the page'
+  );
+
+  await page.close();
+}
+
+console.log('\n\x1b[1mStories submenu (mobile, inside the off-canvas panel)\x1b[0m');
+{
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.waitForTimeout(200);
+
+  const toggle = page.locator('[data-nav-disclosure]').first();
+  const menu = page.locator('[data-nav-submenu]').first();
+  check(await toggle.isVisible(), 'disclosure toggle is available in the mobile panel');
+
+  await toggle.click();
+  await page.waitForTimeout(200);
+  check(await menu.isVisible(), 'submenu expands inline inside the panel');
+
+  // Focus must still be trapped now that there are more links in the panel.
+  let escaped = false;
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press('Tab');
+    const inside = await page.evaluate(
+      () => !!document.activeElement?.closest('[data-nav-panel]')
+    );
+    if (!inside) {
+      escaped = true;
+      break;
+    }
+  }
+  check(!escaped, 'focus is still trapped with the submenu open');
+
+  // First Escape closes the submenu; the panel stays open.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  const navOpen = await page.evaluate(
+    () => document.querySelector('[data-nav]')?.getAttribute('data-open')
+  );
+  check(
+    (await toggle.getAttribute('aria-expanded')) === 'false' && navOpen === 'true',
+    'Escape closes the submenu first, leaving the panel open'
+  );
+
+  // Second Escape closes the panel.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  check(
+    (await page.evaluate(
+      () => document.querySelector('[data-nav]')?.getAttribute('data-open')
+    )) === 'false',
+    'a second Escape closes the panel'
+  );
 
   await page.close();
 }
