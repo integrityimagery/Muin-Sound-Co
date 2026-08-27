@@ -6,11 +6,15 @@
  * between supplied files, never recolouring: each set is drawn for its own
  * ground and is illegible on the others.
  *
- * With `collapsible`, BOTH the lockup and the wordmark are rendered inside the
- * one link, and CSS shows whichever the header's state calls for. They are
- * swapped with `display`, not opacity, so only one is ever in the
- * accessibility tree — two images carrying the same alt text would otherwise
- * both be announced.
+ * With `collapsible`, BOTH marks are rendered, stacked and anchored on the
+ * MUIN letterforms so the collapse reads as the arch and vine dissolving
+ * around a wordmark that never moves. See the geometry note in global.css.
+ *
+ * They cross-fade with opacity rather than swapping with `display`, so only
+ * ONE of them may carry the business name: the lockup is always the labelled
+ * image (it stays in the accessibility tree even at zero opacity), and the
+ * wordmark is marked decorative. Otherwise a screen reader would meet the
+ * company name twice.
  */
 import { Image } from 'astro:assets';
 import { themes, DEFAULT_THEME, type Theme } from '../data/themes';
@@ -69,7 +73,8 @@ const wrapperProps = asLink ? { href: withBase('/') } : {};
       <Image
         class="brandmark__compact"
         src={themes[theme].wordmark}
-        alt={alt}
+        alt=""
+        aria-hidden="true"
         widths={[180, 280, 420]}
         sizes="(max-width: 40rem) 7rem, 9rem"
         loading="eager"

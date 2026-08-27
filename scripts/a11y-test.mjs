@@ -488,15 +488,26 @@ console.log('\n\x1b[1mStories submenu (mobile, inside the off-canvas panel)\x1b[
 
 console.log('\n\x1b[1mSticky header\x1b[0m');
 {
-  for (const [w, h] of [[390, 844], [360, 780]]) {
+  for (const [w, h] of [[390, 844], [360, 780], [375, 667], [360, 640]]) {
     const page = await browser.newPage({ viewport: { width: w, height: h } });
     await page.goto(BASE + '/', { waitUntil: 'networkidle' });
     await page.waitForTimeout(200);
 
-    const stickyOn = await page.evaluate(
-      () => document.querySelector('[data-header]')?.dataset.sticky === 'on'
+    const fixedOn = await page.evaluate(
+      () => document.querySelector('[data-header]')?.dataset.fixed === 'on'
     );
-    check(stickyOn, `header is sticky at ${w}px`);
+    check(fixedOn, `header is fixed at ${w}px`);
+
+    // The spacer must reserve exactly the expanded height, or the page jumps.
+    const reserved = await page.evaluate(() => ({
+      spacer: document.querySelector('[data-header-spacer]').getBoundingClientRect().height,
+      header: document.querySelector('[data-header]').getBoundingClientRect().height,
+    }));
+    check(
+      Math.abs(reserved.spacer - reserved.header) < 1,
+      `spacer reserves the expanded header height at ${w}px`,
+      `${reserved.spacer.toFixed(0)} vs ${reserved.header.toFixed(0)}`
+    );
 
     await page.evaluate(() => window.scrollTo(0, 900));
     await page.waitForTimeout(500);
@@ -522,6 +533,28 @@ console.log('\n\x1b[1mSticky header\x1b[0m');
       `${state.height}px = ${pct.toFixed(1)}% of ${state.vh}px`
     );
 
+    // The mark must stay centred, and the hamburger sits beside it rather
+    // than under it — stacking them is what blew the budget.
+    const layout = await page.evaluate(() => {
+      const img = document.querySelector('.brandmark__compact').getBoundingClientRect();
+      const t = document.querySelector('.nav__toggle').getBoundingClientRect();
+      return {
+        centre: Math.round(img.x + img.width / 2),
+        half: Math.round(window.innerWidth / 2),
+        gap: Math.round(t.left - img.right),
+      };
+    });
+    check(
+      Math.abs(layout.centre - layout.half) <= 1,
+      `collapsed mark stays centred at ${w}px`,
+      `${layout.centre} vs centre ${layout.half}`
+    );
+    check(
+      layout.gap > 8,
+      `collapsed mark does not collide with the menu button at ${w}px`,
+      `${layout.gap}px clear`
+    );
+
     await page.close();
   }
 
@@ -529,29 +562,71 @@ console.log('\n\x1b[1mSticky header\x1b[0m');
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
 
-  const atTop = await page.evaluate(() => ({
-    full: !!document.querySelector('.brandmark__full')?.checkVisibility(),
-    compact: !!document.querySelector('.brandmark__compact')?.checkVisibility(),
-  }));
-  check(atTop.full && !atTop.compact, 'full lockup shows at the top of the page');
+  const opacities = () =>
+    page.evaluate(() => ({
+      full: Number(getComputedStyle(document.querySelector('.brandmark__full')).opacity),
+      compact: Number(getComputedStyle(document.querySelector('.brandmark__compact')).opacity),
+    }));
+
+  const atTop = await opacities();
+  check(atTop.full === 1 && atTop.compact === 0, 'full lockup shows at the top of the page');
 
   await page.evaluate(() => window.scrollTo(0, 900));
   await page.waitForTimeout(500);
 
-  const scrolled = await page.evaluate(() => ({
-    full: !!document.querySelector('.brandmark__full')?.checkVisibility(),
-    compact: !!document.querySelector('.brandmark__compact')?.checkVisibility(),
-  }));
+  const scrolled = await opacities();
   check(
-    !scrolled.full && scrolled.compact,
+    scrolled.full === 0 && scrolled.compact === 1,
     'it collapses to the wordmark once scrolled'
   );
 
-  // Exactly one logo image is exposed, never both.
+  // The marks cross-fade, so both stay in the DOM. Exactly one of them may
+  // carry the business name, or a screen reader meets it twice.
   const named = await page.evaluate(
-    () => [...document.querySelectorAll('header img')].filter((i) => i.checkVisibility()).length
+    () =>
+      [...document.querySelectorAll('header img')].filter(
+        (i) => (i.getAttribute('alt') ?? '').trim() !== '' && i.getAttribute('aria-hidden') !== 'true'
+      ).length
   );
-  check(named === 1, 'only one logo image is in the accessibility tree', `${named} visible`);
+  check(named === 1, 'exactly one logo image carries an accessible name', `${named} named`);
+
+  // MUIN must not drift sideways as it collapses — that is the whole point.
+  const centreExpanded = await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    const b = document.querySelector('.brandmark--collapsible').getBoundingClientRect();
+    return Math.round(b.x + b.width / 2);
+  });
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await page.waitForTimeout(600);
+  const centreCollapsed = await page.evaluate(() => {
+    const b = document.querySelector('.brandmark--collapsible').getBoundingClientRect();
+    return Math.round(b.x + b.width / 2);
+  });
+  check(
+    centreExpanded === centreCollapsed,
+    'the mark stays horizontally centred through the collapse',
+    `${centreExpanded} -> ${centreCollapsed}`
+  );
+
+  // And the page beneath must not lurch when the header shrinks.
+  const docY = () =>
+    page.evaluate(
+      () =>
+        Math.round(
+          document.querySelector('.plain-sentence').getBoundingClientRect().top + window.scrollY
+        )
+    );
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(500);
+  const before = await docY();
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await page.waitForTimeout(600);
+  const after = await docY();
+  check(
+    before === after,
+    'page content does not shift when the header collapses',
+    `${before} -> ${after}`
+  );
 
   // Scrolling back up restores it.
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -624,12 +699,13 @@ console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');
   check(bodyText.includes('Which one of these is you?'), 'story tiles render without JS');
 
   const stickiness = await page.evaluate(() => ({
-    sticky: document.querySelector('[data-header]')?.dataset.sticky ?? 'unset',
+    fixed: document.querySelector('[data-header]')?.dataset.fixed ?? 'unset',
     position: getComputedStyle(document.querySelector('[data-header]')).position,
+    spacer: document.querySelector('[data-header-spacer]').getBoundingClientRect().height,
   }));
   check(
-    stickiness.sticky === 'unset' && stickiness.position === 'static',
-    'header is NOT sticky without JS — nothing would collapse it',
+    stickiness.fixed === 'unset' && stickiness.position === 'static' && stickiness.spacer === 0,
+    'without JS the header stays in flow and the spacer reserves nothing',
     JSON.stringify(stickiness)
   );
 

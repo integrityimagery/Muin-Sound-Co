@@ -206,20 +206,34 @@ console.log('\n\x1b[1mImages\x1b[0m');
 {
   let bad = 0;
   let count = 0;
+  let decorativeCount = 0;
   for (const p of pages) {
     for (const tag of strip(p.html).match(/<img\b[^>]*>/g) ?? []) {
       count++;
+      // `alt` may be emitted bare (equivalent to alt="") for decorative images.
+      const hasAlt = /\salt(=|[\s>])/.test(tag);
       const alt = tag.match(/\salt="([^"]*)"/);
-      if (!alt) {
+      const decorative = /\saria-hidden="true"/.test(tag);
+
+      if (!hasAlt) {
         fail(`${p.rel} has an <img> with no alt attribute`);
         bad++;
-      } else if (alt[1].trim() === '') {
+      } else if (decorative && (!alt || alt[1].trim() === '')) {
+        // Correct: empty alt AND aria-hidden is how you mark an image the
+        // page already names elsewhere. The collapsing header's second mark
+        // is exactly this — the lockup carries the name for both.
+        decorativeCount++;
+      } else if (!alt || alt[1].trim() === '') {
         fail(`${p.rel} has an <img> with empty alt (none here should be decorative)`);
         bad++;
       }
     }
   }
-  if (bad === 0) pass(`all ${count} <img> elements carry non-empty alt text`);
+  if (bad === 0)
+    pass(
+      `all ${count} <img> elements are named (${count - decorativeCount}) or ` +
+        `deliberately decorative (${decorativeCount})`
+    );
 }
 
 /* --- 6. Audio is present and never autoplays -------------------------------- */

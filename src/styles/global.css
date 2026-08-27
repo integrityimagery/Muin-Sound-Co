@@ -506,19 +506,49 @@ figure {
   pointer-events: none;
 }
 
-/* --- Header -------------------------------------------------------------- */
-
 /* --- Header --------------------------------------------------------------
 
-   Sticky, and it collapses on scroll. The full header is ~300px tall; pinning
-   that to the top of a phone would eat the screen, so the collapse is what
-   makes sticky affordable. Collapsed it is ~64px, well inside the brief's
-   15%-of-viewport budget, which a11y-test.mjs asserts.
+   FIXED, with a spacer holding its expanded height.
 
-   NOTE: never give this element a `transform`. A transformed ancestor becomes
-   the containing block for `position: fixed` descendants, which would break
-   the off-canvas mobile menu inside it. The collapse animates padding and
-   font-size only, for exactly that reason. */
+   A sticky header is still in the document flow, so shrinking it on scroll
+   pulls everything below it up by the difference — a ~230px lurch mid-scroll.
+   Out of flow, the collapse moves nothing but the header.
+
+   NEVER give this element a `transform`: a transformed ancestor becomes the
+   containing block for `position: fixed` descendants, which would break the
+   off-canvas mobile menu nested inside it. The collapse animates sizes and
+   opacity only, for exactly that reason.
+
+   --- Mark geometry ---
+
+   The two marks are stacked and anchored on the MUIN letterforms, so the
+   collapse reads as the arch and vine dissolving around a wordmark that stays
+   put, rather than the logo jumping to a corner.
+
+   Measured from the artwork (see the U, which no vine touches):
+
+     lockup   1200x920   MUIN centre (0.5, 0.6505)   MUIN width 0.436 of image
+     wordmark  960x400   MUIN centre (0.4995, 0.3888) MUIN width 0.5719
+
+   MUIN in the lockup is 0.953x the wordmark's, so matching their widths means
+   the wordmark box is 0.4360 / 0.5719 = 0.7624 of the lockup box. Anchoring
+   each image by a negative margin equal to its own MUIN-centre offset puts
+   both MUINs on the same point, and --mark-w then scales the pair about that
+   point. The constants below are those offsets; they are properties of the
+   artwork, so they only change if the artwork does. */
+
+@property --mark-w {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+.header-spacer {
+  /* Height is set by script from a measurement of the expanded header. Zero
+     until then, and permanently zero without JS, where the header is not
+     fixed and needs no spacer. */
+  height: 0;
+}
 
 .header-sentinel {
   position: absolute;
@@ -530,17 +560,20 @@ figure {
 }
 
 .site-header {
+  --mark-w: clamp(13rem, 9rem + 18vw, 21rem);
   padding-block: clamp(1.5rem, 1rem + 2vw, 2.75rem) clamp(1rem, 0.75rem + 1vw, 1.75rem);
   transition:
-    padding 0.22s ease,
-    background-color 0.22s ease;
+    padding 0.32s ease,
+    background-color 0.32s ease,
+    --mark-w 0.32s ease;
 }
 
-/* Applied by script. Without JS nothing would collapse it, and a full-height
-   pinned header is worse than one that scrolls away — so no script, no sticky. */
-.site-header[data-sticky='on'] {
-  position: sticky;
+/* Applied by script. Without JS nothing would collapse it or size the spacer,
+   so it stays in flow and simply scrolls away. */
+.site-header[data-fixed='on'] {
+  position: fixed;
   inset-block-start: 0;
+  inset-inline: 0;
   z-index: 30;
   background-color: var(--bg);
 }
@@ -549,54 +582,11 @@ figure {
   text-align: center;
 }
 
-/* --- Collapsed state ------------------------------------------------------ */
+/* --- The marks ------------------------------------------------------------ */
 
-.brandmark__compact {
-  display: none;
-}
-
-.site-header[data-stuck='true'] {
-  padding-block: 0.6rem;
-  border-block-end: 1px solid var(--border);
-}
-
-/* The centred block becomes the same compact row the story pages use. */
-.site-header--full[data-stuck='true'] {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1rem;
-  text-align: start;
-}
-
-.site-header--full[data-stuck='true'] .nav {
-  margin-block-start: 0;
-}
-
-.site-header[data-stuck='true'] .brandmark__full {
-  display: none;
-}
-
-.site-header[data-stuck='true'] .brandmark__compact {
-  display: block;
-  width: clamp(6.5rem, 5rem + 5vw, 9rem);
-  height: auto;
-}
-
-/* Story pages already show the wordmark; collapsing just tightens them. */
-.site-header--compact[data-stuck='true'] .brandmark--wordmark img {
-  width: clamp(6.5rem, 5rem + 5vw, 9rem);
-}
-
-/* Anchor jumps must clear the collapsed header rather than land under it. */
-html {
-  scroll-padding-block-start: 5.5rem;
-}
-
+/* Plain, single-image usage: the footer, and the story pages' compact header. */
 .brandmark {
   display: inline-block;
-  margin-inline: auto;
 }
 
 .brandmark--lockup img {
@@ -609,28 +599,97 @@ html {
   height: auto;
 }
 
-/* Story pages de-emphasise the header so the hero lands first: the smaller
-   wordmark, tighter spacing, quieter nav. The nav stays in the DOM, in the
-   same place, fully keyboard reachable — it is toned down, never hidden. */
-.site-header--compact {
-  padding-block: 1.5rem 0.75rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+/* --- The stacked pair, for the collapsing header -------------------------- */
+
+.brandmark--collapsible {
+  display: block;
+  position: relative;
+  height: calc(var(--mark-w) * 0.76667); /* lockup aspect 920/1200 */
+  transition: height 0.32s ease;
 }
 
-.site-header--compact .nav__list {
-  font-size: var(--step--1);
+.brandmark--collapsible img {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  height: auto;
+  transition: opacity 0.32s ease;
 }
 
-.site-header--compact .nav__link {
-  color: var(--muted);
+/* Offsets place each image's own MUIN centre on the container's centre. */
+.brandmark--collapsible .brandmark__full {
+  width: var(--mark-w);
+  margin-inline-start: calc(var(--mark-w) * -0.5);
+  margin-block-start: calc(var(--mark-w) * -0.49875);
+  opacity: 1;
 }
 
-.site-header--compact .nav__link:hover {
-  color: var(--link);
+.brandmark--collapsible .brandmark__compact {
+  width: calc(var(--mark-w) * 0.7624);
+  margin-inline-start: calc(var(--mark-w) * -0.3808);
+  margin-block-start: calc(var(--mark-w) * -0.12349);
+  opacity: 0;
+}
+
+/* --- Collapsed state ------------------------------------------------------ */
+
+.site-header[data-stuck='true'] {
+  --mark-w: clamp(6.8rem, 5.5rem + 5vw, 9rem);
+  padding-block: 0.5rem 0.55rem;
+  border-block-end: 1px solid var(--border);
+}
+
+/* Only the wordmark's height matters once the lockup has gone. */
+.site-header[data-stuck='true'] .brandmark--collapsible {
+  height: calc(var(--mark-w) * 0.31767); /* wordmark box at 0.7624 scale */
+}
+
+.site-header[data-stuck='true'] .brandmark__full {
+  opacity: 0;
+}
+
+.site-header[data-stuck='true'] .brandmark__compact {
+  opacity: 1;
+}
+
+/* The brand stays centred above the nav in both states — it never jumps to a
+   corner. Only the spacing tightens. */
+.site-header--full[data-stuck='true'] .nav {
+  margin-block-start: 0.45rem;
+}
+
+/* Story pages already show the wordmark; collapsing just tightens them. */
+.site-header--compact[data-stuck='true'] .brandmark--wordmark img {
+  width: clamp(6.5rem, 5rem + 5vw, 9rem);
+}
+
+/* Below the nav breakpoint the "nav" is a single hamburger, and stacking it
+   under the wordmark pushed the collapsed header to 103px — 16% of a 360x640
+   screen, over the brief's budget. Lifting it out of the stack and centring it
+   against the mark keeps the wordmark centred AND the header short. */
+@media (max-width: 899px) {
+  .site-header--full[data-stuck='true'] .site-header__inner {
+    position: relative;
+  }
+
+  .site-header--full[data-stuck='true'] .nav {
+    margin-block-start: 0;
+  }
+
+  .site-header--full[data-stuck='true'] .nav__toggle {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: 0;
+    /* Safe here: the toggle is a SIBLING of the fixed off-canvas panel, not an
+       ancestor, so this creates no containing block for it. */
+    transform: translateY(-50%);
+    margin-block-start: 0;
+  }
+}
+
+/* Anchor jumps must clear the collapsed header rather than land under it. */
+html {
+  scroll-padding-block-start: 7rem;
 }
 
 /* --- Navigation ---------------------------------------------------------- */
