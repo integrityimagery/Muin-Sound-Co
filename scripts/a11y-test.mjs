@@ -794,6 +794,106 @@ console.log('\n\x1b[1mHeader parity across page types\x1b[0m');
   );
 }
 
+
+/* --- The vine ---------------------------------------------------------------
+   It should read as growing: a tip leading the draw, sprouts unfurling behind
+   it. All of it is decorative, so under reduced motion it must be present and
+   still, never mid-unfurl. */
+
+console.log('\n\x1b[1mThe vine\x1b[0m');
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  const maxScroll = await page.evaluate(
+    () => document.documentElement.scrollHeight - window.innerHeight
+  );
+
+  const open = () =>
+    page.evaluate(
+      () =>
+        [...document.querySelectorAll('.vine-sprout__art')].filter(
+          (a) => Number(getComputedStyle(a).opacity) > 0.9
+        ).length
+    );
+
+  const counts = [];
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+    await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * maxScroll));
+    await page.waitForTimeout(450);
+    counts.push(await open());
+  }
+
+  check(
+    counts.every((n, i) => i === 0 || n >= counts[i - 1]),
+    'sprouts only ever open as you scroll down, never close',
+    counts.join(' -> ')
+  );
+  check(counts[0] < counts[counts.length - 1], 'sprouts open progressively', counts.join(' -> '));
+  check(
+    counts[counts.length - 1] === 18,
+    'every sprout is open by the bottom of the page',
+    `${counts[counts.length - 1]} of 18`
+  );
+
+  // The growing point must sit on the end of the drawn stroke, and stay on
+  // screen — a tip below the fold is a tip nobody sees.
+  let offScreen = 0;
+  let worstGap = 0;
+  for (const f of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
+    await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * maxScroll));
+    await page.waitForTimeout(450);
+    const r = await page.evaluate(() => {
+      const path = document.querySelector('.vine__path--a');
+      const len = path.getTotalLength();
+      const drawn = 1 - parseFloat(getComputedStyle(path).strokeDashoffset);
+      const pt = path.getPointAtLength(drawn * len);
+      const m = path.getScreenCTM();
+      const strokeEndY = pt.y * m.d + m.f;
+      const tip = document.querySelector('.vine-tip').getBoundingClientRect();
+      return {
+        // The bud is at the element's bottom, which is the anchor point.
+        gap: Math.abs(tip.bottom - strokeEndY),
+        onScreen: tip.top > -40 && tip.bottom < window.innerHeight + 40,
+      };
+    });
+    if (!r.onScreen) offScreen++;
+    worstGap = Math.max(worstGap, r.gap);
+  }
+  check(offScreen === 0, 'the growing tip is on screen throughout the scroll', `${offScreen} off-screen`);
+  check(
+    worstGap < 12,
+    'the tip stays on the end of the drawn stroke',
+    `worst gap ${worstGap.toFixed(1)}px`
+  );
+
+  await page.close();
+}
+
+{
+  const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await page.waitForTimeout(400);
+
+  const r = await page.evaluate(() => {
+    const arts = [...document.querySelectorAll('.vine-sprout__art')];
+    return {
+      total: arts.length,
+      open: arts.filter((a) => Number(getComputedStyle(a).opacity) > 0.99).length,
+      anims: arts.reduce((n, a) => n + a.getAnimations().length, 0),
+      tipDisplay: getComputedStyle(document.querySelector('.vine-tip')).display,
+    };
+  });
+  check(
+    r.open === r.total && r.anims === 0,
+    'reduced motion: every sprout is fully open and still',
+    JSON.stringify(r)
+  );
+  check(r.tipDisplay === 'none', 'reduced motion: the travelling tip is hidden, not parked');
+  await ctx.close();
+}
+
 /* --- No-JS fallback -------------------------------------------------------- */
 
 console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');
