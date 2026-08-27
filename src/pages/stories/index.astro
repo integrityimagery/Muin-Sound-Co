@@ -1,0 +1,46 @@
+---
+/**
+ * Stories index.
+ *
+ * Deviation from "minimal stub", noted deliberately: this is a navigation hub,
+ * and a hub that does not link its own children is a dead end. The six links
+ * are here; everything else about the page is still a stub.
+ */
+import Base from '../../layouts/Base.astro';
+import Section from '../../components/Section.astro';
+import { storyTiles } from '../../data/stories';
+---
+
+<Base
+  title="Stories"
+  description="Six kinds of wedding Muin Sound Co. writes for most often — from small quiet ceremonies to forest handfastings to the loud ones."
+  heading="Stories"
+  eyebrow="Find yourselves"
+  lede="Six kinds of wedding we write for most often. Pick the one that sounds like yours."
+>
+  <Section class="section">
+    <ul class="tiles">
+      {
+        storyTiles.map((tile) => (
+          <li>
+            <a
+              href={`/stories/${tile.slug}/`}
+              class={`panel tile tile--${tile.weight}`}
+            >
+              <svg
+                class="tile__leaf"
+                viewBox="0 0 44 44"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M 22 3 C 35 12, 38 26, 22 41 C 6 26, 9 12, 22 3 Z" />
+              </svg>
+              <span class="tile__title">{tile.title}</span>
+              <span class="tile__support">{tile.tileSupport}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+</Base>

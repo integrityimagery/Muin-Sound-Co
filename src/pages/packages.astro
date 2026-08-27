@@ -1,0 +1,44 @@
+---
+/** Stub — the full page is coming. */
+import Base from '../layouts/Base.astro';
+import Section from '../components/Section.astro';
+import { packages } from '../data/packages';
+---
+
+<Base
+  title="Packages"
+  description="Package tiers and starting prices for custom wedding songs from Muin Sound Co. Prices are on the page, not behind a contact form."
+  heading="Packages"
+  eyebrow="Pricing"
+  schemaService
+>
+  <Section class="section" leaf={false}>
+    <!-- PLACEHOLDER — this page is coming. -->
+    <p class="lede">This page is coming. The three tiers below are the shape of it; full inclusions, revision policy and turnaround will be spelled out here.</p>
+    <p class="actions">
+      <a class="btn btn--primary" href="/start/">Start here</a>
+    </p>
+  </Section>
+
+  <Section class="section" eyebrow="Tiers" heading="Three ways in">
+    <ul class="packages">
+      {
+        packages.map((pkg) => (
+          <li>
+            <div class="panel package" id={pkg.slug}>
+              <h3>{pkg.name}</h3>
+              {/* PLACEHOLDER — $X,XXX is deliberately not a real number. */}
+              <p class="package__price">{pkg.priceLabel}</p>
+              <p class="package__summary">{pkg.summary}</p>
+              <ul class="package__includes">
+                {pkg.includes.map((inc) => (
+                  <li>{inc}</li>
+                ))}
+              </ul>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+</Base>

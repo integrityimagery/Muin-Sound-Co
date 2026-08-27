@@ -1,0 +1,70 @@
+---
+/**
+ * The vine spine — the site's signature element.
+ *
+ * Two strands, not one. The logo draws two vines that cross over each other
+ * above the wordmark, and Muin is the Ogham letter for vine: growth through
+ * intertwining. So the page's spine is the same two strands, crossing roughly
+ * once per section for the whole length of the page.
+ *
+ * Geometry notes:
+ *  - preserveAspectRatio="none" lets one path stretch to any page height.
+ *  - vector-effect="non-scaling-stroke" keeps the stroke an even weight
+ *    despite that stretch, which is what makes the trick invisible.
+ *  - pathLength="1" normalises the draw-on animation so it does not depend on
+ *    the rendered geometry.
+ *
+ * Tendril curls and leaves are NOT in here — they live in LeafNode at fixed
+ * size, so nothing with recognisable shape ever gets distorted. Detail at the
+ * joints, a calm line between them.
+ */
+---
+
+<div class="vine" aria-hidden="true">
+  <svg
+    class="vine__stem"
+    viewBox="0 0 40 1200"
+    preserveAspectRatio="none"
+    focusable="false"
+    role="presentation"
+  >
+    <path
+      class="vine__path vine__path--a"
+      pathLength="1"
+      d="M 20 0
+         C 5 50, 5 150, 20 200
+         C 35 250, 35 350, 20 400
+         C 5 450, 5 550, 20 600
+         C 35 650, 35 750, 20 800
+         C 5 850, 5 950, 20 1000
+         C 35 1050, 35 1150, 20 1200"
+    ></path>
+    <path
+      class="vine__path vine__path--b"
+      pathLength="1"
+      d="M 20 0
+         C 35 50, 35 150, 20 200
+         C 5 250, 5 350, 20 400
+         C 35 450, 35 550, 20 600
+         C 5 650, 5 750, 20 800
+         C 35 850, 35 950, 20 1000
+         C 5 1050, 5 1150, 20 1200"
+    ></path>
+  </svg>
+</div>
+
+<style>
+  /* The second strand sits back so the pair reads as depth rather than as
+     two equal lines. */
+  .vine__path--b {
+    stroke-width: 1;
+    opacity: 0.5;
+  }
+
+  /* Trails the first strand slightly, so they appear to grow together
+     rather than in lockstep. Only ever active inside the @supports +
+     no-preference gate in global.css. */
+  .vine__path--b {
+    animation-range: 2% 96%;
+  }
+</style>

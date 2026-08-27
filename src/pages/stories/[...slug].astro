@@ -1,0 +1,43 @@
+---
+/**
+ * Every story page. One route, six pages, and the twenty-minute job the
+ * constraint was for: a new story is a markdown file with four settings.
+ */
+import { getCollection, render } from 'astro:content';
+import Story from '../../layouts/Story.astro';
+import Section from '../../components/Section.astro';
+
+export async function getStaticPaths() {
+  const stories = await getCollection('stories');
+  return stories.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const d = entry.data;
+---
+
+<Story
+  title={d.metaTitle ?? d.title}
+  description={d.description}
+  heading={d.title}
+  eyebrow={d.eyebrow}
+  lede={d.lede}
+  theme={d.theme}
+  hero={d.hero}
+  weight={d.weight}
+  song={d.song}
+  photo={d.photo}
+  ctaHref={d.ctaHref}
+  ctaLabel={d.ctaLabel}
+  ctaBody={d.ctaBody}
+>
+  <Section class="section">
+    <div class="prose">
+      <Content />
+    </div>
+  </Section>
+</Story>

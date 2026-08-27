@@ -1,0 +1,50 @@
+---
+/**
+ * Base layout — About, Packages, For Photographers, Start Here.
+ *
+ * Standard header, standard footer, single content column on the vine spine.
+ */
+import Shell from './Shell.astro';
+import Vine from '../components/Vine.astro';
+import LeafNode from '../components/LeafNode.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Page <h1>. Distinct from the <title>, which is usually longer. */
+  heading: string;
+  eyebrow?: string;
+  lede?: string;
+  schemaService?: boolean;
+  schemaFaq?: boolean;
+}
+
+const { title, description, heading, eyebrow, lede, schemaService, schemaFaq } =
+  Astro.props;
+---
+
+<Shell
+  title={title}
+  description={description}
+  schemaService={schemaService}
+  schemaFaq={schemaFaq}
+>
+  <main id="main-content">
+    <div class="shell">
+      <div class="page-grid">
+        <Vine />
+
+        <div class="section">
+          <LeafNode />
+          <div class="section__head">
+            {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+            <h1>{heading}</h1>
+            {lede && <p class="lede" style="margin-block-start: 1rem;">{lede}</p>}
+          </div>
+        </div>
+
+        <slot />
+      </div>
+    </div>
+  </main>
+</Shell>

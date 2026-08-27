@@ -1,0 +1,45 @@
+---
+/**
+ * Site header.
+ *
+ * Two presentations of the same markup:
+ *   full    — centred lockup with the nav beneath. Home, Base, Listen.
+ *   compact — smaller wordmark, nav inline and de-emphasised. Story pages,
+ *             so the hero lands first.
+ *
+ * The nav is identical in both. On story pages it is toned down visually; it
+ * is never removed, never hidden behind a desktop hamburger, and stays fully
+ * keyboard reachable.
+ *
+ * Not sticky, which keeps the mobile viewport budget a non-issue.
+ */
+import Brandmark from './Brandmark.astro';
+import Nav from './Nav.astro';
+import { DEFAULT_THEME, type Theme } from '../data/themes';
+
+interface Props {
+  variant?: 'full' | 'compact';
+  theme?: Theme;
+  pathname: string;
+  /** On the homepage the lockup is the hero mark, not a link to itself. */
+  markIsLink?: boolean;
+}
+
+const {
+  variant = 'full',
+  theme = DEFAULT_THEME,
+  pathname,
+  markIsLink = true,
+} = Astro.props;
+---
+
+<header class={`site-header site-header--${variant} shell`}>
+  <div class="site-header__brand">
+    <Brandmark
+      theme={theme}
+      variant={variant === 'full' ? 'lockup' : 'wordmark'}
+      asLink={markIsLink}
+    />
+  </div>
+  <Nav pathname={pathname} />
+</header>

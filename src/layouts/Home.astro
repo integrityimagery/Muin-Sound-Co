@@ -1,0 +1,62 @@
+---
+/**
+ * Home layout — /.
+ *
+ * Its own composition. The hero is the one deliberately symmetric, centred
+ * moment on the site, because it answers the arched lockup directly above it.
+ * The vine then emerges from the base of that arch and runs the length of the
+ * page: the logo is the top of the vine, and everything below is what grew
+ * from it.
+ *
+ * The hero exists to get a song playing within seconds of landing, which is
+ * the one thing competitors' stock-photo homepages cannot do.
+ */
+import Shell from './Shell.astro';
+import Vine from '../components/Vine.astro';
+import AudioPlayer from '../components/AudioPlayer.astro';
+import { heroTrack } from '../data/tracks';
+
+interface Props {
+  title: string;
+  description: string;
+  heading: string;
+  positioning: string;
+}
+
+const { title, description, heading, positioning } = Astro.props;
+---
+
+<Shell
+  title={title}
+  description={description}
+  markIsLink={false}
+  schemaService
+  schemaFaq
+>
+  <main id="main-content">
+    <div class="shell">
+      <div class="hero">
+        <!-- PLACEHOLDER — the heading carries the service phrase, not the
+             brand name; the brand name is already the logo's alt text above. -->
+        <h1 class="hero__title">{heading}</h1>
+
+        <!-- PLACEHOLDER -->
+        <p class="hero__positioning">{positioning}</p>
+
+        <div class="hero__player">
+          <AudioPlayer
+            src={heroTrack.src}
+            label={heroTrack.title}
+            caption="Hear one — no autoplay, press play"
+            duration={heroTrack.duration}
+          />
+        </div>
+      </div>
+
+      <div class="page-grid">
+        <Vine />
+        <slot />
+      </div>
+    </div>
+  </main>
+</Shell>

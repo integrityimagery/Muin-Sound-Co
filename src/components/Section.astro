@@ -1,0 +1,52 @@
+---
+/**
+ * A page section with its leaf node on the vine.
+ *
+ * Spacing between sections comes entirely from the single `.section + .section`
+ * rule in global.css driven by --section-gap. Nothing here sets a margin, so
+ * sections cannot end up fighting each other across layouts.
+ */
+import LeafNode from './LeafNode.astro';
+
+interface Props {
+  /** Small caps label above the heading. */
+  eyebrow?: string;
+  /** Section heading. Omit for sections that supply their own markup. */
+  heading?: string;
+  /** Anchor target and aria-labelledby source. */
+  id?: string;
+  /** Alternate the leaf tilt down the page. */
+  flip?: boolean;
+  class?: string;
+  /** Hide the leaf for sections that should not read as a growth point. */
+  leaf?: boolean;
+}
+
+const {
+  eyebrow,
+  heading,
+  id,
+  flip = false,
+  class: className = '',
+  leaf = true,
+} = Astro.props;
+
+const headingId = id ? `${id}-heading` : undefined;
+---
+
+<section
+  class={`section ${className}`}
+  id={id}
+  aria-labelledby={heading ? headingId : undefined}
+>
+  {leaf && <LeafNode flip={flip} />}
+  {
+    (eyebrow || heading) && (
+      <div class="section__head">
+        {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+        {heading && <h2 id={headingId}>{heading}</h2>}
+      </div>
+    )
+  }
+  <slot />
+</section>

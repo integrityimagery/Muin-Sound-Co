@@ -1,0 +1,147 @@
+---
+/**
+ * Main navigation.
+ *
+ * One <nav>, one list, no duplicated markup — CSS switches the same list
+ * between an inline bar (>=900px) and an off-canvas panel (<900px), so there
+ * is only ever one set of links in the accessibility tree.
+ */
+import { nav, isCurrent } from '../data/site';
+
+interface Props {
+  /** Current pathname, for aria-current. */
+  pathname: string;
+}
+
+const { pathname } = Astro.props;
+---
+
+<nav class="nav" aria-label="Main" data-nav data-open="false">
+  <button
+    type="button"
+    class="nav__toggle"
+    aria-expanded="false"
+    aria-controls="main-nav-panel"
+    data-nav-toggle
+  >
+    <span class="nav__toggle-bars" aria-hidden="true"></span>
+    <span>Menu</span>
+  </button>
+
+  <div class="nav__panel" id="main-nav-panel" data-nav-panel>
+    <button type="button" class="nav__close" data-nav-close>Close</button>
+    <ul class="nav__list">
+      {
+        nav.map((item) => {
+          const current = isCurrent(item.href, pathname);
+          return (
+            <li>
+              <a
+                href={item.href}
+                class={item.primary ? 'btn btn--primary nav__cta' : 'nav__link'}
+                aria-current={current ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</nav>
+
+<script>
+  /**
+   * Off-canvas menu behaviour.
+   *
+   * The menu only exists below 900px; above that the same list is an inline
+   * bar and none of this runs. Three things have to be true while it is open:
+   * focus cannot leave it, Escape closes it, and the rest of the page is
+   * hidden from assistive tech.
+   *
+   * `inert` does the third and most of the first. The explicit Tab wrap is
+   * belt-and-braces for the panel's own edges.
+   */
+  const FOCUSABLE =
+    'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+
+  const setup = (root: HTMLElement) => {
+    const toggle = root.querySelector<HTMLButtonElement>('[data-nav-toggle]');
+    const panel = root.querySelector<HTMLElement>('[data-nav-panel]');
+    const closeBtn = root.querySelector<HTMLButtonElement>('[data-nav-close]');
+    if (!toggle || !panel) return;
+
+    // Everything that should be unreachable while the menu covers the page.
+    const outside = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>('main, .site-footer, .site-header__brand')
+      );
+
+    let open = false;
+
+    const setOpen = (next: boolean) => {
+      if (next === open) return;
+      open = next;
+      root.dataset.open = String(next);
+      toggle.setAttribute('aria-expanded', String(next));
+      document.documentElement.style.overflow = next ? 'hidden' : '';
+      outside().forEach((el) => {
+        if (next) el.setAttribute('inert', '');
+        else el.removeAttribute('inert');
+      });
+
+      if (next) {
+        panel.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+      } else {
+        toggle.focus();
+      }
+    };
+
+    toggle.addEventListener('click', () => setOpen(!open));
+    closeBtn?.addEventListener('click', () => setOpen(false));
+
+    // Following a link unmounts the page anyway, but same-page hashes would
+    // otherwise leave the menu covering the destination.
+    panel.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('a')) setOpen(false);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!open) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+
+      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => el.offsetParent !== null
+      );
+      if (items.length === 0) return;
+
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    // Crossing the breakpoint while open would strand `inert` and a hidden
+    // overflow on a page whose menu is now an ordinary inline bar.
+    const desktop = window.matchMedia('(min-width: 900px)');
+    desktop.addEventListener('change', (e) => {
+      if (e.matches) setOpen(false);
+    });
+  };
+
+  document.querySelectorAll<HTMLElement>('[data-nav]').forEach(setup);
+</script>

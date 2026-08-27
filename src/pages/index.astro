@@ -1,0 +1,247 @@
+---
+import Home from '../layouts/Home.astro';
+import Section from '../components/Section.astro';
+import AudioPlayer from '../components/AudioPlayer.astro';
+import Faq from '../components/Faq.astro';
+import { getCollection } from 'astro:content';
+import { storyTiles } from '../data/stories';
+import { processSteps } from '../data/stories';
+import { tracks } from '../data/tracks';
+import { packages } from '../data/packages';
+
+/**
+ * The homepage tiles preview each story page's `weight` knob typographically.
+ * That only works if the two agree, so the build asserts it rather than
+ * trusting that nobody edits one without the other.
+ */
+const stories = await getCollection('stories');
+for (const tile of storyTiles) {
+  const entry = stories.find((s) => s.id === tile.slug);
+  if (!entry) {
+    throw new Error(
+      `Story tile "${tile.slug}" has no matching page in src/content/stories/.`
+    );
+  }
+  if (entry.data.weight !== tile.weight || entry.data.theme !== tile.theme) {
+    throw new Error(
+      `Story "${tile.slug}" is out of sync: tile says ${tile.theme}/${tile.weight}, ` +
+        `page says ${entry.data.theme}/${entry.data.weight}.`
+    );
+  }
+}
+
+const listenTracks = tracks.slice(0, 3);
+---
+
+<Home
+  title="Muin Sound Co. — original songs written for your wedding"
+  description="Custom wedding songs written and produced from your own story, starting with one video conversation. Working with couples anywhere, remotely."
+  heading="Original songs, written for your wedding"
+  positioning="One conversation, then a song that could only be about the two of you."
+>
+  {/* --- 2. The plain sentence ------------------------------------------- */}
+  <Section id="what-this-is" leaf={false} class="section">
+    <!-- PLACEHOLDER -->
+    <p class="plain-sentence">
+      Muin Sound Co. writes and produces original songs for weddings. We work
+      with couples anywhere, remotely, starting with a video conversation about
+      your story. You end up owning a song that did not exist before you met.
+    </p>
+  </Section>
+
+  {/* --- 3. Story entry points -------------------------------------------- */}
+  <Section
+    id="stories"
+    eyebrow="Find yourselves"
+    heading="Which one of these is you?"
+  >
+    <p style="color: var(--muted); margin-block-end: 1.5rem;">
+      Six kinds of wedding we write for most often. Pick the one that sounds
+      like yours.
+    </p>
+
+    <ul class="tiles">
+      {
+        storyTiles.map((tile) => (
+          <li>
+            <a
+              href={`/stories/${tile.slug}/`}
+              class={`panel tile tile--${tile.weight}`}
+              data-theme-hint={tile.theme}
+            >
+              <svg
+                class="tile__leaf"
+                viewBox="0 0 44 44"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M 22 3 C 35 12, 38 26, 22 41 C 6 26, 9 12, 22 3 Z" />
+              </svg>
+              {/* PLACEHOLDER — tile copy is in the couple's voice, not a category label. */}
+              <span class="tile__title">{tile.tileVoice}</span>
+              <span class="tile__support">{tile.tileSupport}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  {/* --- 4. How it works --------------------------------------------------- */}
+  <Section
+    id="how-it-works"
+    eyebrow="How it works"
+    heading="Three steps, one conversation"
+    flip
+  >
+    <ol class="steps">
+      {
+        processSteps.map((step) => (
+          <li class="step">
+            <span class="step__n" aria-hidden="true">
+              {step.n}
+            </span>
+            <h3>{step.title}</h3>
+            {/* PLACEHOLDER */}
+            <p>{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+    <!-- PLACEHOLDER — confirm real turnaround before launch. -->
+    <p style="margin-block-start: 1.5rem; color: var(--muted);">
+      Typical turnaround is <strong>X–X weeks</strong> from the video consult to
+      your finished files. Rush timelines are sometimes possible.
+    </p>
+  </Section>
+
+  {/* --- 5. Listen ---------------------------------------------------------
+      The written description and lyric excerpt are load-bearing: crawlers
+      cannot hear audio, so this text is the only thing that tells a search
+      engine what these songs are. */}
+  <Section id="listen" eyebrow="Listen" heading="What the songs sound like">
+    <ul class="tracks">
+      {
+        listenTracks.map((track) => (
+          <li class="track panel">
+            {/* PLACEHOLDER — titles describe style deliberately, so none can be
+                mistaken for a real couple's song. */}
+            <h3 class="track__title">{track.title}</h3>
+            <p class="track__desc">{track.description}</p>
+            <blockquote class="track__lyric">
+              <p>{track.lyric}</p>
+            </blockquote>
+            <div class="track__player">
+              <AudioPlayer
+                src={track.src}
+                label={track.title}
+                duration={track.duration}
+              />
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="actions">
+      <a class="btn btn--ghost" href="/listen/">Hear more</a>
+    </p>
+  </Section>
+
+  {/* --- 6. Packages preview ------------------------------------------------ */}
+  <Section
+    id="packages"
+    eyebrow="Packages"
+    heading="What it costs"
+    flip
+  >
+    <p style="color: var(--muted); margin-block-end: 1.5rem;">
+      Prices are on the page, where they belong. No form to fill in first.
+    </p>
+
+    <ul class="packages">
+      {
+        packages.map((pkg) => (
+          <li>
+            <div class="panel package" id={pkg.slug}>
+              <h3>{pkg.name}</h3>
+              {/* PLACEHOLDER — $X,XXX is deliberately not a real number. */}
+              <p class="package__price">{pkg.priceLabel}</p>
+              <p class="package__summary">{pkg.summary}</p>
+              <ul class="package__includes">
+                {pkg.includes.map((inc) => (
+                  <li>{inc}</li>
+                ))}
+              </ul>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="actions">
+      <a class="btn btn--ghost" href="/packages/">Full package details</a>
+    </p>
+  </Section>
+
+  {/* --- 7. Proof ----------------------------------------------------------- */}
+  <Section id="proof" eyebrow="Proof" heading="What couples say">
+    <!-- PLACEHOLDER — no real testimonials yet. These slots are intentionally
+         unattributed: inventing a named couple would be fabricating a review. -->
+    <p class="placeholder-note">Placeholder — awaiting real testimonials</p>
+
+    <ul class="testimonials" style="margin-block-start: 1.25rem;">
+      {
+        [1, 2, 3].map(() => (
+          <li class="panel">
+            <p class="testimonial__quote">
+              “A short quote from a real couple will go here, once there are
+              real couples to quote.”
+            </p>
+            <p class="testimonial__who">Couple name — venue, month year</p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div style="margin-block-start: 2.5rem;">
+      <h3>What the video consult actually involves</h3>
+      <!-- PLACEHOLDER -->
+      <div class="prose" style="margin-block-start: 0.75rem;">
+        <p>
+          About an hour, on a call, with both of you. It is not an interview and
+          there is no homework. We talk about how you met, what nearly went
+          wrong, who is not going to be in the room, and what you are actually
+          promising each other — the specifics, not the sentiment.
+        </p>
+        <p>
+          Everything after that is craft. The song gets written from the parts
+          of the conversation you did not expect to matter, which is why the
+          consult is the product and the recording is the delivery.
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  {/* --- 8. For photographers ----------------------------------------------- */}
+  <Section id="photographers" leaf={false} class="section">
+    <div class="band">
+      <h2>For photographers and planners</h2>
+      <!-- PLACEHOLDER -->
+      <p>
+        Original score makes a wedding film sit up, and a song written for the
+        couple licenses cleanly for your gallery and reel. Referral terms and
+        turnaround details are on the partner page.
+      </p>
+      <p class="actions">
+        <a href="/photographers/">Working together</a>
+      </p>
+    </div>
+  </Section>
+
+  {/* --- 9. FAQ -------------------------------------------------------------
+      Mirrored exactly by the FAQPage JSON-LD, because both read from
+      src/data/faq.ts. */}
+  <Section id="faq" eyebrow="Questions" heading="Before you ask" flip>
+    <Faq />
+  </Section>
+</Home>

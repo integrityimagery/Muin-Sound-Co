@@ -1,0 +1,98 @@
+---
+/**
+ * The foundation under all four layouts.
+ *
+ * Owns <head>, the theme attributes, the skip link, the header and the
+ * footer. Base / Story / Listen / Home differ only in what they put between
+ * the header and the footer — which is what keeps fifteen or twenty pages
+ * from drifting apart.
+ */
+import '@fontsource-variable/fraunces/full.css';
+import '@fontsource/alegreya-sans/400.css';
+import '@fontsource/alegreya-sans/400-italic.css';
+import '@fontsource/alegreya-sans/700.css';
+import '../styles/global.css';
+
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import Schema from '../components/Schema.astro';
+import { site } from '../data/site';
+import { themes, DEFAULT_THEME, type Theme } from '../data/themes';
+import type { StoryWeight } from '../data/stories';
+
+interface Props {
+  title: string;
+  description: string;
+  theme?: Theme;
+  weight?: StoryWeight;
+  headerVariant?: 'full' | 'compact';
+  markIsLink?: boolean;
+  /** Emit Service + Offer structured data. */
+  schemaService?: boolean;
+  /** Emit FAQPage structured data. Set only where an FAQ is actually visible. */
+  schemaFaq?: boolean;
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description,
+  theme = DEFAULT_THEME,
+  weight = 'standard',
+  headerVariant = 'full',
+  markIsLink = true,
+  schemaService = false,
+  schemaFaq = false,
+  bodyClass = '',
+} = Astro.props;
+
+const pathname = Astro.url.pathname;
+const canonical = new URL(pathname, Astro.site ?? site.url).href;
+const activeTheme = themes[theme];
+
+// Title pattern: the homepage sets its own full title; inner pages get suffixed.
+const fullTitle = pathname === '/' ? title : `${title} — ${site.name}`;
+---
+
+<!doctype html>
+<html lang="en" data-theme={theme} data-weight={weight}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta name="theme-color" content={activeTheme.pageColor} />
+    <meta name="color-scheme" content={activeTheme.colorScheme} />
+    <link rel="icon" type="image/png" href={activeTheme.avatar.src} />
+    <link rel="apple-touch-icon" href={activeTheme.avatar.src} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL(activeTheme.lockup.src, site.url).href} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <meta name="generator" content={Astro.generator} />
+
+    <Schema service={schemaService} includeFaq={schemaFaq} theme={theme} />
+  </head>
+
+  <body class={bodyClass}>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <SiteHeader
+      variant={headerVariant}
+      theme={theme}
+      pathname={pathname}
+      markIsLink={markIsLink}
+    />
+
+    <slot />
+
+    <SiteFooter theme={theme} />
+  </body>
+</html>
