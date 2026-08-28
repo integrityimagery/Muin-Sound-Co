@@ -336,6 +336,46 @@ console.log('\n\x1b[1mStylesheet discipline\x1b[0m');
   if (bad === 0) pass('no hex colour appears outside the three palette blocks');
 }
 
+/* --- 9. The page transition survived minification -------------------------- */
+
+/* Twice now a CSS feature has been written correctly, worked in dev, and been
+   dropped silently by Lightning CSS on the way into `dist/` — once when it
+   folded an `animation` shorthand together with `animation-timeline` into a
+   declaration that was invalid, and discarded it without a warning. There is
+   no runtime error for this; the effect simply does not happen in production
+   and works fine locally. So the built stylesheet is checked, not the source. */
+
+console.log('\n\x1b[1mPage transitions\x1b[0m');
+{
+  const sheets = walk(join(DIST, '_astro'))
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => readFileSync(f, 'utf8'));
+  const css = sheets.join('\n');
+
+  const required = [
+    ['@view-transition', /@view-transition\s*\{\s*navigation:\s*auto\s*\}/],
+    ['the header held still', /view-transition-name:\s*site-header/],
+    ['the outgoing page', /::view-transition-old\(root\)\s*\{[^}]*page-leave/],
+    ['the incoming page', /::view-transition-new\(root\)\s*\{[^}]*page-enter/],
+    ['both keyframes', /@keyframes page-enter\s*\{/],
+    [
+      'the reduced-motion opt-out',
+      /prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?@view-transition\s*\{\s*navigation:\s*none\s*\}/,
+    ],
+  ];
+
+  let missing = 0;
+  for (const [label, re] of required) {
+    if (!re.test(css)) {
+      fail(`the built CSS lost ${label} — check Lightning CSS output in dist/_astro/`);
+      missing++;
+    }
+  }
+  if (missing === 0) {
+    pass('the page transition survives minification, reduced-motion opt-out included');
+  }
+}
+
 /* --- Result ----------------------------------------------------------------- */
 
 console.log(

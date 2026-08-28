@@ -244,6 +244,55 @@ nav beside it, the two vertically centred. Stacking the hamburger under the
 wordmark instead pushed the collapsed header to 16% of a 360x640 screen, over
 the brief's 15% budget.
 
+### Page transitions
+
+Navigating between pages fades the document out and lets the new one settle up
+eight pixels — about a third of a second, once. **Cross-document view
+transitions, declared in CSS**: `@view-transition { navigation: auto }`, no
+router, no client-side JavaScript, no interception of clicks. The pages stay
+ordinary documents that ordinary navigation loads. An SPA router would have
+bought the same effect and taken on scroll restoration, focus management,
+re-running every page script and keeping the back button honest — for fourteen
+static pages.
+
+Both documents have to opt in and both are served this stylesheet, so every
+internal navigation transitions and every outbound link (a different origin)
+simply does not. Where the browser lacks support, navigation is what it was:
+instant. Chrome/Edge 126+ and Safari 18.2+ have it; Firefox's arrived later.
+
+Three decisions carry it.
+
+**The header is the one shared element.** It is fixed and identical on every
+page, so it gets a `view-transition-name` and holds exactly still while the
+page changes underneath. That single line is most of what makes this read as
+composed rather than as a fade. The browser test asserts its viewport rect is
+byte-identical either side of a navigation.
+
+**The header cross-fades; the page below does not.** The header's two
+snapshots are near-identical, so dissolving one into the other is invisible,
+while fading it out and back would make the site's one fixed element blink on
+every click. The page below is a *different* object, and cross-fading two
+different layouts double-exposes them — at the midpoint you get one page's
+display type printed through another's. It looked like a slideshow. So the
+incoming page's delay is exactly the outgoing page's duration: no overlap, and
+no blank pause either.
+
+**The footer deliberately has no name.** Its position depends on page length,
+so a shared footer would slide from wherever it sat on the old page to wherever
+it sits on the new one — a long travel for an element you are navigating away
+from.
+
+One known behaviour: on the two navigations that change palette (into or out of
+a story page in another theme), the ground switches to the destination's colour
+at the start, so the outgoing page dissolves *into* the new palette rather than
+out of its own. It reads as intentional in motion. Fixing it properly would
+mean naming `main` as well, which brings the group's size morph and the
+snapshot stretching that comes with it — not worth it for two routes.
+
+Reduced motion switches it off at the source (`navigation: none`) rather than
+speeding it up: `::view-transition-*` pseudo-elements live in their own tree,
+so the blanket `*` rule in section 8 never reaches them.
+
 ### Known constraints
 
 - The placeholder audio is WAV because this environment has no MP3 encoder.

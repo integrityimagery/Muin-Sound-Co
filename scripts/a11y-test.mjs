@@ -978,6 +978,111 @@ console.log('\n\x1b[1mPage gutters\x1b[0m');
   }
 }
 
+/* --- Page transitions -------------------------------------------------------
+   Cross-document view transitions, declared entirely in CSS. Three things are
+   worth pinning down, and none of them is visible in a screenshot. */
+
+console.log('\n\x1b[1mPage transitions\x1b[0m');
+{
+  /* Records, on the OUTGOING document, whether the browser actually started a
+     transition for this navigation. sessionStorage because that is the only
+     thing that survives the document swap. */
+  const recorder = () => {
+    addEventListener('pageswap', (e) => {
+      sessionStorage.setItem('swap', e.viewTransition ? 'transition' : 'none');
+    });
+  };
+
+  const navigate = async (ctx) => {
+    await ctx.addInitScript(recorder);
+    const page = await ctx.newPage();
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    const before = await page.evaluate(() =>
+      JSON.stringify(document.querySelector('[data-header]').getBoundingClientRect())
+    );
+    await Promise.all([
+      page.waitForURL('**/about/'),
+      page.locator('.nav__list a[href$="/about/"]').first().click(),
+    ]);
+    await page.waitForTimeout(700);
+    const result = {
+      swap: await page.evaluate(() => sessionStorage.getItem('swap')),
+      after: await page.evaluate(() =>
+        JSON.stringify(document.querySelector('[data-header]').getBoundingClientRect())
+      ),
+      before,
+      // Nothing may be left running, or the page is stuck under a snapshot.
+      stuck: await page.evaluate(
+        () =>
+          document
+            .getAnimations()
+            .filter((a) => String(a.effect?.pseudoElement || '').startsWith('::view-transition'))
+            .length
+      ),
+      interactive: await page.locator('h1').first().isVisible(),
+    };
+    await page.close();
+    return result;
+  };
+
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const r = await navigate(ctx);
+    await ctx.close();
+
+    check(r.swap === 'transition', 'a real click starts a view transition', `${r.swap}`);
+    check(
+      r.before === r.after,
+      'the header is in exactly the same place either side of it',
+      `${r.before} vs ${r.after}`
+    );
+    check(r.stuck === 0, 'nothing is left running once it finishes', `${r.stuck} animations`);
+    check(r.interactive, 'the destination is rendered and not hidden under a snapshot');
+  }
+
+  /* The `*` rule in the reduced-motion block cannot reach ::view-transition-*,
+     so the transition has to be switched off at the source. If that ever
+     regressed, the one motion on the site would be the one ignoring the
+     preference. */
+  {
+    const ctx = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      reducedMotion: 'reduce',
+    });
+    const r = await navigate(ctx);
+    await ctx.close();
+
+    check(
+      r.swap === 'none',
+      'reduced motion: no transition is started at all',
+      `${r.swap}`
+    );
+    check(r.interactive, 'reduced motion: the destination still renders');
+  }
+
+  /* `view-transition-name` forces a stacking context, and the off-canvas menu
+     is a `position: fixed` child of the header. If naming the header ever
+     started giving it a containing block too, the full-screen menu would
+     silently shrink to the header's box. */
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await page.click('[data-nav-toggle]');
+    await page.waitForTimeout(250);
+    const panel = await page.evaluate(() => {
+      const r = document.querySelector('[data-nav-panel]').getBoundingClientRect();
+      return { x: r.x, y: r.y, w: Math.round(r.width), h: Math.round(r.height),
+               vw: window.innerWidth, vh: window.innerHeight };
+    });
+    await page.close();
+    check(
+      panel.x === 0 && panel.y === 0 && panel.w === panel.vw && panel.h === panel.vh,
+      'naming the header does not trap the off-canvas menu inside it',
+      JSON.stringify(panel)
+    );
+  }
+}
+
 /* --- No-JS fallback -------------------------------------------------------- */
 
 console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');

@@ -8,7 +8,8 @@
      4. Elements
      5. Layout primitives (the page grid)
      6. Components
-     7. Reduced motion
+     7. Page transitions
+     8. Reduced motion
 
    Two rules hold everywhere:
      - No rule outside section 2 may contain a hex value. Every colour goes
@@ -1761,11 +1762,107 @@ html {
 }
 
 /* --------------------------------------------------------------------------
-   7. Reduced motion
+   7. Page transitions
 
-   Belt and braces. The scroll-driven animations above are already gated on
-   `prefers-reduced-motion: no-preference`; this catches transitions and
-   anything added later without thinking about it.
+   Navigating between pages cross-fades the document and lets the new one
+   settle up a few pixels. Around a third of a second, once, and then it is
+   done — long enough to read as deliberate, short enough that you would not
+   wait for it.
+
+   CROSS-DOCUMENT view transitions: `@view-transition` in CSS, no router, no
+   client-side JavaScript, no interception of clicks. The pages stay ordinary
+   documents that ordinary navigation loads; the browser takes a snapshot of
+   the outgoing one and cross-fades it with the incoming one itself. An SPA
+   router would have bought the same effect and taken on responsibility for
+   scroll restoration, focus management, re-running every page script and
+   keeping the back button honest — for a site that is fourteen static pages.
+
+   Both documents have to opt in, and both are served this stylesheet, so
+   every internal navigation transitions and every outbound link (a different
+   origin) simply does not. Where the feature is unsupported, navigation is
+   what it is today: instant.
+
+   The one shared element is the header. It is fixed, and identical on every
+   page, so it should not be re-drawn — it should stay exactly where it is
+   while the page changes underneath. Giving it a name lifts it out of the
+   root snapshot, and that single line is most of what makes this read as
+   intentional rather than as a fade: the mark and the nav hold still.
+
+   The footer deliberately does NOT get one. Its position depends on how long
+   the page is, so a shared footer would slide from wherever it sat on the old
+   page to wherever it sits on the new one — a long, distracting travel for an
+   element you are usually navigating away from.
+   -------------------------------------------------------------------------- */
+
+@view-transition {
+  navigation: auto;
+}
+
+.site-header {
+  view-transition-name: site-header;
+}
+
+/* The header keeps the browser's default CROSS-fade, and the page below does
+   not. That is deliberate, and it is the difference between this feeling
+   composed and feeling cheap.
+
+   The header is the same object either side of the navigation, so its two
+   snapshots are near-identical and dissolving one into the other is
+   invisible — while fading it out to nothing and back would make the site's
+   one fixed element blink on every click. What does differ is the
+   current-page marker, and on a story page the logo artwork, and a short
+   dissolve is exactly the right way to change those.
+
+   The page below is a different object, and cross-fading two different
+   layouts double-exposes them: at the midpoint you get one page's display
+   type printed through another's. It looked like a slideshow. So the two
+   never overlap — the old one is gone before the new one starts. */
+::view-transition-group(site-header) {
+  animation-duration: 200ms;
+}
+
+/* The outgoing page only fades. It is a static bitmap by this point, and
+   moving a bitmap that the eye still reads as text is what makes a transition
+   feel cheap. */
+::view-transition-old(root) {
+  animation-name: page-leave;
+  animation-duration: 110ms;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+
+::view-transition-new(root) {
+  animation-name: page-enter;
+  animation-duration: 240ms;
+  /* Decelerating, with the overshoot deliberately left out — a page that
+     bounces is a page that is pleased with itself. */
+  animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
+  /* Exactly the outgoing page's duration: it starts the frame the old one
+     finishes, so there is no double exposure and no blank pause either. */
+  animation-delay: 110ms;
+  animation-fill-mode: both;
+}
+
+@keyframes page-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    /* Eight pixels. Enough to give the arrival a direction, not enough to
+       read as a slide. */
+    transform: translateY(8px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. Reduced motion
+
+   Belt and braces. This catches transitions and anything added later without
+   thinking about it.
    -------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1778,4 +1875,11 @@ html {
     scroll-behavior: auto !important;
   }
 
+  /* Switched off at the source rather than sped up. The `*` rule above cannot
+     reach ::view-transition-* — those pseudo-elements live in their own tree,
+     not the document's — so without this the page transition would be the one
+     piece of motion that ignored the preference. */
+  @view-transition {
+    navigation: none;
+  }
 }
