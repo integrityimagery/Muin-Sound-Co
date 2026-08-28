@@ -1063,6 +1063,9 @@ html {
   height: 100%;
 }
 
+/* Base state is the no-JavaScript state: the vine simply rendered, complete
+   and still. The script in Vine.astro drives the growth by writing values
+   directly — see the note there for why it is not CSS scroll-driven. */
 .vine__path {
   fill: none;
   stroke: var(--vine-stem);
@@ -1074,39 +1077,6 @@ html {
      enhancement layered on top, so a browser without scroll-driven
      animations still gets the complete illustration. */
   stroke-dashoffset: 0;
-}
-
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    html:not([data-vine-fallback='on']) .vine__path {
-      /* pathLength="1" is set on the element, so this is geometry-independent. */
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-      animation-name: vine-grow;
-      animation-duration: auto;
-      animation-timing-function: linear;
-      animation-fill-mode: forwards;
-      animation-timeline: scroll(root block);
-      animation-range: 0% 100%;
-    }
-  }
-}
-
-/* Draws from nothing over the whole scroll.
-
-   An earlier version started 18% drawn so the line's end would sit below the
-   fold — otherwise, when the vine spanned the whole document, the tip trailed
-   near the TOP of the screen and looked unfinished. That is no longer true:
-   the vine spans only the content grid (shorter than the scrollable distance,
-   because the header, hero and footer sit outside it), so the growing point
-   naturally tracks the lower half of the viewport for the whole page. */
-@keyframes vine-grow {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
 }
 
 .leaf-node {
@@ -1226,153 +1196,6 @@ html {
 
 .vine-tip__bud {
   fill: var(--vine-leaf);
-}
-
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    html:not([data-vine-fallback='on']) .vine-tip {
-      opacity: 1;
-      animation-name: vine-tip-travel;
-      animation-duration: auto;
-      animation-timing-function: linear;
-      animation-fill-mode: forwards;
-      animation-timeline: scroll(root block);
-      /* Matches the stem's draw exactly, so the tip is always at its end. */
-      animation-range: 0% 100%;
-    }
-  }
-}
-
-/* Follows the stem's own cubics, sampled by ARC LENGTH rather than by height.
-
-   stroke-dasharray measures along the path, so a tip positioned linearly in y
-   drifts ahead of the line's end wherever the vine bulges — visibly, by about
-   a hundred pixels down a long page. Sampling the same way the dash does keeps
-   the growing point exactly on the end of the line. */
-@keyframes vine-tip-travel {
-  0% { top: 0%; left: 50%; }
-  2.78% { top: 2.77%; left: 32.69%; }
-  5.56% { top: 5.55%; left: 24.41%; }
-  8.33% { top: 8.33%; left: 21.88%; }
-  11.11% { top: 11.16%; left: 24.49%; }
-  13.89% { top: 13.94%; left: 32.86%; }
-  16.67% { top: 16.67%; left: 50%; }
-  19.44% { top: 19.44%; left: 67.31%; }
-  22.22% { top: 22.22%; left: 75.59%; }
-  25% { top: 25%; left: 78.13%; }
-  27.78% { top: 27.83%; left: 75.51%; }
-  30.56% { top: 30.61%; left: 67.14%; }
-  33.33% { top: 33.33%; left: 50%; }
-  36.11% { top: 36.1%; left: 32.69%; }
-  38.89% { top: 38.88%; left: 24.41%; }
-  41.67% { top: 41.67%; left: 21.88%; }
-  44.44% { top: 44.5%; left: 24.49%; }
-  47.22% { top: 47.27%; left: 32.86%; }
-  50% { top: 50%; left: 50%; }
-  52.78% { top: 52.77%; left: 67.31%; }
-  55.56% { top: 55.55%; left: 75.59%; }
-  58.33% { top: 58.33%; left: 78.13%; }
-  61.11% { top: 61.16%; left: 75.51%; }
-  63.89% { top: 63.94%; left: 67.14%; }
-  66.67% { top: 66.67%; left: 50%; }
-  69.44% { top: 69.44%; left: 32.69%; }
-  72.22% { top: 72.22%; left: 24.41%; }
-  75% { top: 75%; left: 21.88%; }
-  77.78% { top: 77.83%; left: 24.49%; }
-  80.56% { top: 80.61%; left: 32.86%; }
-  83.33% { top: 83.33%; left: 50%; }
-  86.11% { top: 86.1%; left: 67.31%; }
-  88.89% { top: 88.88%; left: 75.59%; }
-  91.67% { top: 91.67%; left: 78.13%; }
-  94.44% { top: 94.5%; left: 75.51%; }
-  97.22% { top: 97.27%; left: 67.14%; }
-  100% { top: 100%; left: 50%; }
-}
-
-/* Each sprout runs on its OWN view timeline, so it unfurls as it comes up the
-   screen — behind the tip, which by then has already passed it. */
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    html:not([data-vine-fallback='on']) .vine-sprout__art {
-      animation-name: vine-sprout;
-      animation-duration: auto;
-      animation-timing-function: linear;
-      /* `both`, not `forwards`. Before its range a `forwards` animation shows
-         the element's NORMAL styles — which here means fully grown — so every
-         sprout below the fold was already open. `both` applies the 0% keyframe
-         in the before phase, which is what "not sprouted yet" means. */
-      animation-fill-mode: both;
-      animation-timeline: view();
-      /* Reaching into `cover` rather than ending inside `entry`: the entry
-         range of a ~20px element spans ~20px of scroll, so the sprout snapped
-         open. This unfurls it over a few hundred pixels instead. */
-      animation-range: entry 10% cover 28%;
-    }
-  }
-}
-
-@keyframes vine-sprout {
-  0% {
-    --grow: 0.04;
-    opacity: 0;
-  }
-  45% {
-    opacity: 1;
-  }
-  78% {
-    /* A touch past full size, so it settles rather than stops. */
-    --grow: 1.07;
-  }
-  100% {
-    --grow: 1;
-    opacity: 1;
-  }
-}
-
-/* --- Fallback for browsers without scroll-driven animations ---------------
-
-   Scroll timelines shipped in Chrome 115, Firefox 144 and Safari 26. Before
-   those the vine simply rendered finished and nothing moved, which is most of
-   the point of it gone.
-
-   The script in Vine.astro sets this attribute and then writes the values
-   directly. The native rules above are scoped with :not() so they never run at
-   the same time — a scroll-driven animation would otherwise keep animating
-   stroke-dashoffset, and a running animation beats an inline style.
-
-   All this rule does is get out of the way. */
-
-[data-vine-fallback='on'] .vine-tip {
-  /* Positioned in pixels by script rather than by the keyframes. */
-  transition: none;
-}
-
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    html:not([data-vine-fallback='on']) .leaf-node {
-      opacity: 0;
-      transform: scale(0.7) rotate(-12deg);
-      transform-origin: 50% 20%;
-      animation-name: leaf-unfurl;
-      animation-duration: auto;
-      animation-timing-function: linear;
-      animation-fill-mode: forwards;
-      animation-timeline: view();
-      animation-range: entry 10% entry 65%;
-    }
-  }
-}
-
-@keyframes leaf-unfurl {
-  from {
-    opacity: 0;
-    transform: scale(0.7) rotate(-12deg);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
 }
 
 /* Spine narrows on tablet, disappears on phones. The leaf survives as an

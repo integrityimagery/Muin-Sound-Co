@@ -796,77 +796,107 @@ console.log('\n\x1b[1mHeader parity across page types\x1b[0m');
 
 
 /* --- The vine ---------------------------------------------------------------
-   It should read as growing: a tip leading the draw, sprouts unfurling behind
-   it. All of it is decorative, so under reduced motion it must be present and
-   still, never mid-unfurl. */
+   It should read as growing, and — the part that went wrong before — it should
+   behave the SAME on every page. Progress used to be tied to document scroll
+   while the vine spans only the content grid: 80% of the homepage but 30% of a
+   short page, so short pages arrived fully leafed and finished early. */
 
 console.log('\n\x1b[1mThe vine\x1b[0m');
 {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-  const maxScroll = await page.evaluate(
-    () => document.documentElement.scrollHeight - window.innerHeight
-  );
+  const routes = [
+    '/',
+    '/listen/',
+    '/packages/',
+    '/about/',
+    '/start/',
+    '/stories/',
+    '/stories/the-woods-called/',
+    '/stories/the-quiet-ones/',
+    '/stories/the-defiant-ones/',
+  ];
 
-  const open = () =>
-    page.evaluate(
-      () =>
-        [...document.querySelectorAll('.vine-sprout__art')].filter(
-          (a) => Number(getComputedStyle(a).opacity) > 0.9
-        ).length
+  const profiles = [];
+
+  for (const route of routes) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(BASE + route, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(400);
+    const max = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight
     );
 
-  const counts = [];
-  for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-    await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * maxScroll));
-    await page.waitForTimeout(450);
-    counts.push(await open());
+    const steps = [];
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * max));
+      await page.waitForTimeout(320);
+      steps.push(
+        await page.evaluate(() => {
+          const path = document.querySelector('.vine__path--a');
+          const drawn = 1 - parseFloat(getComputedStyle(path).strokeDashoffset);
+          const m = path.getScreenCTM();
+          const pt = path.getPointAtLength(drawn * path.getTotalLength());
+          const tip = document.querySelector('.vine-tip').getBoundingClientRect();
+          return {
+            drawn: Number(drawn.toFixed(2)),
+            open: [...document.querySelectorAll('.vine-sprout__art')].filter(
+              (a) => Number(getComputedStyle(a).opacity) > 0.9
+            ).length,
+            gap: Math.abs(tip.bottom - (pt.y * m.d + m.f)),
+            onScreen: tip.top > -40 && tip.bottom < window.innerHeight + 40,
+          };
+        })
+      );
+    }
+    await page.close();
+    profiles.push({ route, steps });
   }
 
-  check(
-    counts.every((n, i) => i === 0 || n >= counts[i - 1]),
-    'sprouts only ever open as you scroll down, never close',
-    counts.join(' -> ')
-  );
-  check(counts[0] < counts[counts.length - 1], 'sprouts open progressively', counts.join(' -> '));
-  check(
-    counts[counts.length - 1] === 18,
-    'every sprout is open by the bottom of the page',
-    `${counts[counts.length - 1]} of 18`
-  );
-
-  // The growing point must sit on the end of the drawn stroke, and stay on
-  // screen — a tip below the fold is a tip nobody sees.
-  let offScreen = 0;
-  let worstGap = 0;
-  for (const f of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
-    await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * maxScroll));
-    await page.waitForTimeout(450);
-    const r = await page.evaluate(() => {
-      const path = document.querySelector('.vine__path--a');
-      const len = path.getTotalLength();
-      const drawn = 1 - parseFloat(getComputedStyle(path).strokeDashoffset);
-      const pt = path.getPointAtLength(drawn * len);
-      const m = path.getScreenCTM();
-      const strokeEndY = pt.y * m.d + m.f;
-      const tip = document.querySelector('.vine-tip').getBoundingClientRect();
-      return {
-        // The bud is at the element's bottom, which is the anchor point.
-        gap: Math.abs(tip.bottom - strokeEndY),
-        onScreen: tip.top > -40 && tip.bottom < window.innerHeight + 40,
-      };
-    });
-    if (!r.onScreen) offScreen++;
-    worstGap = Math.max(worstGap, r.gap);
+  for (const { route, steps } of profiles) {
+    const label = route.replace(/^\/|\/$/g, '') || 'home';
+    check(
+      steps[0].drawn === 0 && steps[0].open === 0,
+      `${label}: arrives ungrown`,
+      `drawn ${steps[0].drawn}, ${steps[0].open} leaves open`
+    );
+    check(
+      steps[4].drawn === 1 && steps[4].open === 18,
+      `${label}: finishes complete at the foot of the page`,
+      `drawn ${steps[4].drawn}, ${steps[4].open}/18 leaves`
+    );
+    check(
+      steps.every(
+        (s, i) => i === 0 || (s.drawn >= steps[i - 1].drawn && s.open >= steps[i - 1].open)
+      ),
+      `${label}: only ever grows, never retreats`,
+      steps.map((s) => `${s.drawn}/${s.open}`).join(' ')
+    );
+    check(
+      steps.every((s) => s.onScreen && s.gap < 12),
+      `${label}: growing tip stays on screen and on the stroke's end`,
+      `worst gap ${Math.max(...steps.map((s) => s.gap)).toFixed(1)}px`
+    );
   }
-  check(offScreen === 0, 'the growing tip is on screen throughout the scroll', `${offScreen} off-screen`);
+
+  // The whole point: no page should feel different from any other.
+  const drawnSpread = [1, 2, 3].map((i) => {
+    const v = profiles.map((pr) => pr.steps[i].drawn);
+    return Math.max(...v) - Math.min(...v);
+  });
   check(
-    worstGap < 12,
-    'the tip stays on the end of the drawn stroke',
-    `worst gap ${worstGap.toFixed(1)}px`
+    Math.max(...drawnSpread) <= 0.06,
+    'every page grows the stem at the same rate',
+    `widest disagreement mid-scroll ${Math.max(...drawnSpread).toFixed(2)}`
   );
 
-  await page.close();
+  const leafSpread = [1, 2, 3].map((i) => {
+    const v = profiles.map((pr) => pr.steps[i].open);
+    return Math.max(...v) - Math.min(...v);
+  });
+  check(
+    Math.max(...leafSpread) <= 2,
+    'every page opens leaves at the same rate',
+    `widest disagreement ${Math.max(...leafSpread)} leaves`
+  );
 }
 
 {
@@ -881,94 +911,21 @@ console.log('\n\x1b[1mThe vine\x1b[0m');
     return {
       total: arts.length,
       open: arts.filter((a) => Number(getComputedStyle(a).opacity) > 0.99).length,
-      anims: arts.reduce((n, a) => n + a.getAnimations().length, 0),
+      drawn:
+        1 -
+        parseFloat(
+          getComputedStyle(document.querySelector('.vine__path--a')).strokeDashoffset
+        ),
       tipDisplay: getComputedStyle(document.querySelector('.vine-tip')).display,
     };
   });
   check(
-    r.open === r.total && r.anims === 0,
-    'reduced motion: every sprout is fully open and still',
+    r.open === r.total && r.drawn === 1,
+    'reduced motion: the vine is complete and still',
     JSON.stringify(r)
   );
   check(r.tipDisplay === 'none', 'reduced motion: the travelling tip is hidden, not parked');
   await ctx.close();
-}
-
-/* --- Vine fallback ----------------------------------------------------------
-   Scroll-driven animations only shipped in Chrome 115 / Firefox 144 / Safari
-   26, so most of the point of the vine was invisible on anything older. The
-   script path has to produce the same thing. ?vine-fallback forces it, and the
-   native rules are :not()-scoped so forcing it is a faithful simulation. */
-
-console.log('\n\x1b[1mVine fallback (no scroll-timeline support)\x1b[0m');
-{
-  const sample = async (url) => {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await page.goto(url, { waitUntil: 'networkidle' });
-    const max = await page.evaluate(
-      () => document.documentElement.scrollHeight - window.innerHeight
-    );
-    const rows = [];
-    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-      await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * max));
-      await page.waitForTimeout(420);
-      rows.push(
-        await page.evaluate(() => {
-          const path = document.querySelector('.vine__path--a');
-          const drawn = 1 - parseFloat(getComputedStyle(path).strokeDashoffset);
-          const m = path.getScreenCTM();
-          const pt = path.getPointAtLength(drawn * path.getTotalLength());
-          const tip = document.querySelector('.vine-tip').getBoundingClientRect();
-          return {
-            open: [...document.querySelectorAll('.vine-sprout__art')].filter(
-              (a) => Number(getComputedStyle(a).opacity) > 0.9
-            ).length,
-            drawn: Number(drawn.toFixed(2)),
-            gap: Math.abs(tip.bottom - (pt.y * m.d + m.f)),
-            onScreen: tip.top > -40 && tip.bottom < window.innerHeight + 40,
-          };
-        })
-      );
-    }
-    await page.close();
-    return rows;
-  };
-
-  const nativeRows = await sample(BASE + '/');
-  const fallbackRows = await sample(BASE + '/?vine-fallback');
-
-  check(
-    fallbackRows.every((r, i) => i === 0 || r.drawn >= fallbackRows[i - 1].drawn) &&
-      fallbackRows[0].drawn === 0 &&
-      fallbackRows[fallbackRows.length - 1].drawn === 1,
-    'fallback: the stem draws from nothing to complete',
-    fallbackRows.map((r) => r.drawn).join(' -> ')
-  );
-  check(
-    fallbackRows.every((r) => r.onScreen),
-    'fallback: the growing tip stays on screen'
-  );
-  check(
-    fallbackRows.every((r) => r.gap < 12),
-    'fallback: the tip stays on the end of the drawn stroke',
-    `worst ${Math.max(...fallbackRows.map((r) => r.gap)).toFixed(1)}px`
-  );
-  check(
-    fallbackRows[0].open === 0 && fallbackRows[fallbackRows.length - 1].open === 18,
-    'fallback: sprouts open progressively, all 18 by the foot of the page',
-    fallbackRows.map((r) => r.open).join(' -> ')
-  );
-  // It should look like the native path, not merely animate somehow.
-  const drift = Math.max(
-    ...fallbackRows.map((r, i) => Math.abs(r.open - nativeRows[i].open))
-  );
-  check(
-    drift <= 2,
-    'fallback tracks the native animation closely',
-    `native ${nativeRows.map((r) => r.open).join('/')} vs fallback ${fallbackRows
-      .map((r) => r.open)
-      .join('/')}`
-  );
 }
 
 /* --- No-JS fallback -------------------------------------------------------- */

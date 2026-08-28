@@ -115,93 +115,119 @@ const sprouts = [
 
 <script>
   /**
-   * Fallback for browsers without CSS scroll-driven animations.
+   * Drives the vine's growth.
    *
-   * The vine is animated natively by `animation-timeline: scroll()/view()`,
-   * which costs no JavaScript and no per-frame work — but that shipped in
-   * Chrome 115, Firefox 144 and Safari 26. Older browsers got the graceful
-   * degradation (vine drawn, every leaf open) and so saw no animation at all,
-   * which is most of the point of the thing gone.
+   * ONE mechanism, for every page and every browser.
    *
-   * This writes the values directly rather than driving the CSS keyframes.
-   * The tip's position comes from `getPointAtLength` on the actual path, so it
-   * needs no copy of the curve and is, if anything, more accurate than the
-   * sampled keyframes the native path uses.
+   * This was CSS scroll-driven animation (`animation-timeline: scroll()/view()`)
+   * with a script fallback. Two problems killed that:
    *
-   * The native rules are scoped with `:not([data-vine-fallback])` so the two
-   * never run together: a scroll-driven animation on stroke-dashoffset would
-   * otherwise win over an inline style and fight this.
+   *   1. Support. Scroll timelines shipped in Chrome 115, Firefox 144 and
+   *      Safari 26; older browsers saw a finished vine and no motion at all.
+   *   2. Consistency, which is the real one. `scroll()` measures the DOCUMENT,
+   *      but the vine spans only the content grid — 80% of the homepage and
+   *      30% of a short page like /about/. Every page therefore behaved
+   *      differently: on short pages every leaf was already open on arrival and
+   *      only the stem moved, and the vine ended far above the footer, so it
+   *      never looked like it finished.
+   *
+   * Progress is now measured against the VINE'S OWN extent, not the page's: the
+   * vine is drawn to wherever you are reading. That is page-length independent,
+   * so a stub page and the homepage behave identically.
+   *
+   * Without JavaScript the CSS leaves the vine drawn and still — a complete
+   * picture, just not an animated one.
    */
-  const forced = new URLSearchParams(location.search).has('vine-fallback');
-  const native = CSS.supports('animation-timeline', 'scroll()');
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  if ((forced || !native) && !still) {
+  if (!still) {
     const vine = document.querySelector<HTMLElement>('.vine');
-    const strands = [
-      ...document.querySelectorAll<SVGPathElement>('.vine__path'),
-    ];
-    const tip = document.querySelector<HTMLElement>('.vine-tip');
+    const strands = [...document.querySelectorAll<SVGPathElement>('.vine__path')];
     const lead = document.querySelector<SVGPathElement>('.vine__path--a');
+    const tip = document.querySelector<HTMLElement>('.vine-tip');
     const sprouts = [
       ...document.querySelectorAll<HTMLElement>('.vine-sprout__art, .leaf-node'),
     ];
 
     if (vine && lead && tip) {
-      document.documentElement.dataset.vineFallback = 'on';
-
       const clamp = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+      /* Progress is the page's own scroll, 0 at the top and 1 at the bottom.
+
+         Earlier attempts tied it to a reading line on screen, which is more
+         physically honest but behaves differently on every page: the vine spans
+         only the content grid, so on a short page the line is already past most
+         of it on arrival, and past ALL of it well before the page bottom. That
+         is what made /about/ arrive fully leafed and /stories/the-quiet-ones/
+         finish growing a quarter of the way down.
+
+         Scroll progress has none of that: every page starts ungrown, finishes
+         exactly at the foot, and grows at an even rate in between. */
+
+      let vineTop = 0;
+      let vineHeight = 1;
+      /** Each leaf's position ALONG the vine, 0..1. */
+      let positions: number[] = [];
+
+      const measure = () => {
+        const box = vine.getBoundingClientRect();
+        vineTop = box.top + window.scrollY;
+        vineHeight = box.height || 1;
+        positions = sprouts.map((el) =>
+          clamp(
+            (el.getBoundingClientRect().top + window.scrollY - vineTop) / vineHeight
+          )
+        );
+      };
+
       let queued = false;
 
       const paint = () => {
         queued = false;
-        // Hidden below 560px; nothing to drive.
-        if (!vine.offsetParent) return;
+        if (!vine.offsetParent) return; // hidden below 560px
 
-        const doc = document.documentElement;
-        const max = doc.scrollHeight - window.innerHeight;
-        const p = max > 0 ? clamp(window.scrollY / max) : 1;
+        const maxScroll =
+          document.documentElement.scrollHeight - window.innerHeight;
+        const p = maxScroll > 0 ? clamp(window.scrollY / maxScroll) : 1;
 
-        // Draw the strands. pathLength="1" makes these values geometry-free.
         strands.forEach((path, i) => {
-          // The second strand trails, as it does natively.
-          const q = clamp(i === 0 ? p : p - 0.03);
+          const q = clamp(i === 0 ? p : p - 0.03); // second strand trails
           path.style.strokeDasharray = '1';
           path.style.strokeDashoffset = String(1 - q);
         });
 
-        // The growing point, taken from the real curve.
+        // The growing point, taken from the real curve rather than a copy of it.
         const m = lead.getScreenCTM();
         if (m) {
           const pt = lead.getPointAtLength(p * lead.getTotalLength());
           const box = vine.getBoundingClientRect();
-          tip.style.opacity = '1';
+          tip.style.opacity = p > 0 && p < 1 ? '1' : '0';
           tip.style.left = `${pt.x * m.a + m.e - box.left}px`;
           tip.style.top = `${pt.y * m.d + m.f - box.top}px`;
         }
 
-        /* Sprouts open on their own position, mirroring the native `view()`
-           range: each starts as it clears the bottom edge and finishes about a
-           third of a viewport later. The shape is a plain ramp with the same
-           slight overshoot as the keyframes. */
-        const vh = window.innerHeight;
-        for (const el of sprouts) {
-          const sp = clamp((vh - el.getBoundingClientRect().top) / (vh * 0.38));
-
+        // Each leaf opens just after the growing point passes it.
+        sprouts.forEach((el, i) => {
+          const at = positions[i]!;
+          /* A leaf opens once the growing point has passed it — never before,
+             so the order always reads as sprouting behind the tip. The window
+             shrinks near the foot of the vine so the last leaves still finish
+             by the time the page does, rather than being cut off mid-unfurl. */
+          const over = Math.max(0.04, Math.min(0.12, 1 - at));
+          const sp = clamp((p - at) / over);
           if (el.classList.contains('leaf-node')) {
-            // Matches @keyframes leaf-unfurl: 0.7 -> 1, -12deg -> 0.
             el.style.opacity = String(sp);
             el.style.transform = `scale(${(0.7 + 0.3 * sp).toFixed(3)}) rotate(${(-12 + 12 * sp).toFixed(2)}deg)`;
           } else {
-            // Matches @keyframes vine-sprout, overshoot included.
             el.style.opacity = String(clamp(sp / 0.45));
+            // A touch past full size, so it settles rather than stops.
             const grow =
               sp < 0.78
                 ? 0.04 + (1.07 - 0.04) * (sp / 0.78)
                 : 1.07 - 0.07 * ((sp - 0.78) / 0.22);
             el.style.setProperty('--grow', grow.toFixed(3));
           }
-        }
+        });
       };
 
       const schedule = () => {
@@ -210,9 +236,17 @@ const sprouts = [
         requestAnimationFrame(paint);
       };
 
-      paint();
+      const remeasure = () => {
+        measure();
+        paint();
+      };
+
+      remeasure();
       addEventListener('scroll', schedule, { passive: true });
-      addEventListener('resize', schedule, { passive: true });
+      addEventListener('resize', remeasure, { passive: true });
+      // Late layout shifts (web fonts, images) move every anchor.
+      document.fonts?.ready.then(remeasure);
+      addEventListener('load', remeasure);
     }
   }
 </script>

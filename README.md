@@ -197,22 +197,29 @@ Search the codebase for `PLACEHOLDER`. Every stand-in is marked.
 
 ### The vine's motion
 
-The vine grows on scroll: the stem draws, a tip leads the draw, and sprouts
-unfurl behind it. Natively this is CSS scroll-driven animation
-(`animation-timeline: scroll()/view()`) — no JavaScript, no per-frame work.
+The vine grows on scroll: the stem draws, a tip leads the draw, and leaves
+sprout behind it. All of it is driven by one script in `Vine.astro`, on one
+clock — **the page's own scroll progress**, 0 at the top and 1 at the foot.
 
-That only shipped in **Chrome 115, Firefox 144 and Safari 26**, so anything
-older would have seen a finished vine and no motion at all. `Vine.astro`
-carries a script fallback that writes the same values directly; it takes the
-tip's position from `getPointAtLength` on the real path, so it needs no copy of
-the curve. The native rules are `:not([data-vine-fallback])`-scoped so the two
-never run together — a scroll-driven animation on `stroke-dashoffset` would
-otherwise beat an inline style and fight it.
+It began as CSS scroll-driven animation (`animation-timeline: scroll()/view()`),
+which is cheaper, and two things ruled that out:
 
-Append **`?vine-fallback`** to any URL to force the script path in a browser
-that supports the native one. Because the two are mutually exclusive in CSS,
-that is a faithful simulation, and `npm run test:a11y` asserts the two produce
-the same thing.
+- **Support.** Scroll timelines shipped in Chrome 115, Firefox 144 and Safari
+  26. Older browsers saw a finished vine and no motion at all.
+- **Consistency**, which mattered more. `scroll()` measures the document, but
+  the vine spans only the content grid — 80% of the homepage and 30% of a page
+  like `/about/`. Every page behaved differently: short pages arrived with every
+  leaf already open and the stem finished growing a quarter of the way down.
+
+Tying the clock to scroll progress makes the two independent of page length. A
+leaf opens once the growing point passes its position along the vine, with the
+window narrowing near the foot so the last leaves still finish rather than being
+cut off. `npm run test:a11y` checks nine routes and asserts they agree: same
+start, same finish, same rate.
+
+Without JavaScript the CSS leaves the vine complete and still — a whole
+picture, just not an animated one. Same under `prefers-reduced-motion`, where
+the travelling tip is hidden rather than parked mid-path.
 
 ### Known constraints
 
