@@ -2,7 +2,7 @@
 /**
  * Listen layout — /listen.
  *
- * Same header, footer and spine as Base; the difference is a wider content
+ * Same header and footer as Base; the difference is a wider content
  * column, because a track card carries a player, a prose description of the
  * instrumentation and a lyric excerpt, and all three need room to breathe.
  *
@@ -10,7 +10,6 @@
  * --measure), not from a competing set of layout rules.
  */
 import Shell from './Shell.astro';
-import Vine from '../components/Vine.astro';
 import LeafNode from '../components/LeafNode.astro';
 
 interface Props {
@@ -28,8 +27,6 @@ const { title, description, heading, eyebrow, lede } = Astro.props;
   <main id="main-content">
     <div class="shell">
       <div class="page-grid">
-        <Vine />
-
         <div class="section">
           <LeafNode />
           <div class="section__head">

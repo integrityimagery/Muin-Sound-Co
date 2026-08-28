@@ -1,10 +1,12 @@
 ---
 /**
- * A leaf on the vine, marking the start of a section.
+ * A leaf marking the start of a section.
  *
  * Fixed size and never stretched, so the drawing stays a drawing: a pointed
  * blade with a centre vein and side veins, plus one tendril curl — the same
- * vocabulary as the logo's foliage, at the same level of detail.
+ * vocabulary as the logo's foliage, at the same level of detail. It used to
+ * hang off a vine running down the page's left gutter; with that gone it is a
+ * mark above the heading.
  *
  * Purely decorative. The section heading beside it carries the meaning, so
  * this is hidden from assistive tech.
@@ -19,7 +21,7 @@ const { flip = false } = Astro.props;
 const rotation = flip ? 24 : -24;
 ---
 
-<span class="leaf-node" data-leaf aria-hidden="true">
+<span class="leaf-node" aria-hidden="true">
   <svg viewBox="0 0 44 44" focusable="false" role="presentation">
     <g transform={`rotate(${rotation} 22 22)`}>
       <!-- Blade -->

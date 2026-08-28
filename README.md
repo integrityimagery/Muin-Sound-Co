@@ -4,7 +4,8 @@ Custom wedding songs, written from the couple's own story. Astro, static
 output, no client framework.
 
 Muin is the Ogham letter for vine — growth through connection, things that grow
-stronger by intertwining. That idea drives the layout, not just the About copy.
+stronger by intertwining. The logo's arch and foliage carry that; the page
+layout itself is plain, one centred column.
 
 ---
 
@@ -243,76 +244,13 @@ nav beside it, the two vertically centred. Stacking the hamburger under the
 wordmark instead pushed the collapsed header to 16% of a 360x640 screen, over
 the brief's 15% budget.
 
-### The vine's motion
-
-**The stem is always there. Only the leaves grow**, opening as you reach them
-and staying open. One `IntersectionObserver` in `Vine.astro` drives it, and the
-rule is one sentence: a leaf opens once its top has passed 82% of the viewport
-height.
-
-It went through two earlier versions, and both failed the same way, which is
-worth writing down because it is not obvious.
-
-- **CSS scroll-driven animation** (`animation-timeline: scroll()/view()`) is
-  the cheap, correct-looking answer. It shipped in Chrome 115, Firefox 144 and
-  Safari 26; everywhere older the vine simply never moved.
-- **A script on a scroll clock** fixed the support gap and not the real
-  problem: the stem's length is the *page's* length. Tie the clock to the
-  document and a short page arrives finished; tie it to the vine and the same
-  scroll gesture grows a different amount on every page. `/about/` opened all
-  eighteen leaves before you touched the wheel.
-
-A leaf has no such problem — it is a fixed point in the page, and "open when
-you reach it" means the same thing on the homepage as on a two-paragraph stub.
-So the stem stopped animating and the growth moved entirely into the foliage.
-
-One trap, since it looks like the observer alone should be enough: with
-`threshold: 0`, an entry is queued only when `isIntersecting` **changes**. Jump
-the viewport past a leaf in one go — End, a fragment link, a flung trackpad —
-and it goes from below the root box to above it without ever being inside one:
-no state change, no callback, and a leaf you have scrolled well past sits there
-furled. On the homepage that left 14 of 24 shut at the foot of the page. The
-observer is therefore the *cue*, not the rule: every callback re-checks every
-leaf still waiting.
-
-### Every leaf is generated
-
-`Vine.astro` draws each leaf to order — outline, size, angle, which strand it
-grows from, how fast it opens. Eighteen copies of one drawing at three angles
-looked stamped. The blade is built along an axis rather than written out as a
-path, so its two edges, its vein and its stalk stay in register: a broader or
-more upswept leaf is still recognisably the same plant.
-
-The randomness is seeded (`SEED` at the top of the file), not `Math.random()`.
-It is a design tool, so it should be a fixed one — the same vine ships from
-every build, it is reviewable in a diff, and the tests can assert against it.
-Change `SEED` to deal a new hand.
-
-Density is thinned at runtime rather than fixed at build time, because the vine
-is as long as its page: one fixed set of leaves is a thicket on a stub and a
-bare wire on the homepage. Leaves are dropped until no two are closer than 72px,
-so the spacing is a property of the design and not of how much copy a page
-happens to carry.
-
-`npm run test:a11y` checks nine routes: every leaf you have reached is open,
-none opens before you reach it, growth never runs backwards, and the vine is
-fully leafed at the foot of every page. It also checks the variety itself —
-that no two leaves share an outline, that both strands are used, and that sizes,
-angles and timings differ — because a bug that collapsed any of that to a
-constant would leave the vine working and looking stamped, which nothing else
-would catch.
-
-Without JavaScript, and under `prefers-reduced-motion`, the growth is never
-armed and the CSS leaves the vine complete and still — a whole picture, just
-not an animated one.
-
 ### Known constraints
 
 - The placeholder audio is WAV because this environment has no MP3 encoder.
   Real masters should be MP3 — the player takes any source.
-- **Declare the leaves' transitions with longhands, never the `transition`
-  shorthand.** Lightning CSS folds a shorthand into one declaration, and a
-  custom property named inside it (`--grow`, `--tuck`) is not reliably carried
-  through — the same silent drop that took out the earlier scroll-driven
-  animations, where it merged `animation` with `animation-timeline` into
-  something invalid and discarded it without a word.
+- The header collapse transitions `--mark-w`, a registered custom property, in
+  a `transition` shorthand. That survives Lightning CSS, but a custom property
+  in an *animation* shorthand did not: it merged `animation` with
+  `animation-timeline` into something invalid and dropped it silently, with no
+  build warning. If a transition or animation ever stops running for no visible
+  reason, check the built CSS in `dist/_astro/` before checking anything else.

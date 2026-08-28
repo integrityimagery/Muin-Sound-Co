@@ -12,7 +12,6 @@
  * palettes clear the same thresholds, verified by scripts/contrast-check.mjs.
  */
 import Shell from './Shell.astro';
-import Vine from '../components/Vine.astro';
 import LeafNode from '../components/LeafNode.astro';
 import AudioPlayer from '../components/AudioPlayer.astro';
 import PlaceholderFigure from '../components/PlaceholderFigure.astro';
@@ -73,8 +72,6 @@ const {
   <main id="main-content">
     <div class="shell">
       <div class="page-grid">
-        <Vine />
-
         <div class={`section story-hero story-hero--${hero}`}>
           <LeafNode />
           <div class="section__head">

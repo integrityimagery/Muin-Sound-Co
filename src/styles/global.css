@@ -6,7 +6,7 @@
      2. Palettes          (the ONLY place a hex value may appear)
      3. Type scale        (rescaled by the story `weight` knob)
      4. Elements
-     5. Layout primitives (the vine spine grid)
+     5. Layout primitives (the page grid)
      6. Components
      7. Reduced motion
 
@@ -183,9 +183,6 @@ ol[class] {
   --section-gap: clamp(3.5rem, 2.5rem + 4vw, 6rem);
   --measure: 34rem;
 
-  /* Spine */
-  --spine-w: 4.5rem;
-  --spine-gap: 1.75rem;
   --shell-max: 74rem;
   --gutter: clamp(1rem, 0.5rem + 2.5vw, 2.5rem);
 }
@@ -316,9 +313,10 @@ figure {
 /* --------------------------------------------------------------------------
    5. Layout primitives
 
-   The page is a two-column grid: a narrow spine holding the vine, and the
-   content column. Sections live in the content column; the vine spans every
-   row of the grid.
+   One centred column. It used to be two — a narrow spine down the left for the
+   vine, and the content beside it — which made the left gutter wider than the
+   right by the spine's width. With the vine gone the shell's own padding is
+   the gutter, and it is the same on both sides.
    -------------------------------------------------------------------------- */
 
 .shell {
@@ -327,19 +325,12 @@ figure {
   padding-inline: var(--gutter);
 }
 
+/* Still a grid rather than a plain block: grid children do not collapse
+   margins, which is what lets `.section + .section` be the ONE rule that
+   spaces sections. */
 .page-grid {
   display: grid;
-  grid-template-columns: var(--spine-w) minmax(0, 1fr);
-  column-gap: var(--spine-gap);
-  position: relative;
-}
-
-/* The vine is excluded deliberately. It is absolutely positioned (see .vine
-   below), and an abspos grid child with a DEFINITE grid position takes that
-   grid area as its containing block — so leaving `grid-column: 2` on it would
-   pin the vine inside the content column instead of the spine. */
-.page-grid > *:not(.vine) {
-  grid-column: 2;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* THE one rule that spaces sections. Layouts adjust --section-gap; nothing
@@ -1115,61 +1106,24 @@ html {
   }
 }
 
-/* --- The vine -------------------------------------------------------------
+/* --- The section leaf ------------------------------------------------------
 
-   The signature element. Structural, not ornamental: it IS the left gutter of
-   the page grid, and every section hangs a leaf node off it.
+   What is left of the vine. The spine that used to run down the left gutter
+   is gone — with it the two crossing strands, their generated foliage and the
+   scroll-driven growth — so the leaf is no longer hung off anything: it is a
+   small mark above a section's heading, the same drawing at the same level of
+   detail as the logo's foliage.
 
-   The stem stretches to whatever height the page happens to be
-   (preserveAspectRatio="none" + vector-effect keeps the stroke even). Leaves
-   and tendril curls are fixed-size SVGs at the nodes, so they never distort —
-   detail at the joints, a calm line between them. */
-
-/* Absolutely positioned rather than a row-spanning grid item: `grid-row: 1/-1`
-   silently collapses to a single row when the grid has no EXPLICIT rows, which
-   is the case here since every section is auto-placed. Positioning against the
-   grid container's padding box spans the full page height without depending on
-   how many sections happen to exist. */
-.vine {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: var(--spine-w);
-  pointer-events: none;
-}
-
-.vine__stem {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* The stem never animates. It is the page's spine — always drawn, top to
-   bottom, in every state: with JavaScript, without it, and under reduced
-   motion. Only the leaves grow. See the note in Vine.astro for why the
-   draw-on came out. */
-.vine__path {
-  fill: none;
-  stroke: var(--vine-stem);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-  opacity: 0.85;
-}
+   Fixed size and never stretched, so the drawing stays a drawing. */
 
 .leaf-node {
-  position: absolute;
-  inset-inline-start: calc(-1 * (var(--spine-w) + var(--spine-gap)));
-  inset-block-start: 0.35em;
-  width: var(--spine-w);
-  display: flex;
-  justify-content: center;
+  display: block;
+  margin-block-end: 0.5rem;
   pointer-events: none;
 }
 
 .leaf-node svg {
-  width: 2.25rem;
+  width: 1.6rem;
   height: auto;
   overflow: visible;
 }
@@ -1190,178 +1144,6 @@ html {
   stroke: var(--vine-stem);
   stroke-width: 1.4;
   stroke-linecap: round;
-}
-
-/* --- Leaves ----------------------------------------------------------------
-
-   Positioned in percentages sampled from the stem's real cubics, so they sit
-   ON the curve. They are HTML rather than SVG children because the stem is
-   stretched with preserveAspectRatio="none" — anything with a recognisable
-   shape put inside it would be squashed too.
-
-   Every leaf's outline, size, angle, side and timing is generated in
-   Vine.astro, so the shared CSS below can only say what they all do: unfurl
-   when reached, and stay.
-
-   --grow and --tuck are registered so they can be TRANSITIONED, which lets
-   the opening compose with the static rotation, mirroring and scale already
-   on the same transform rather than overwriting them. Unregistered custom
-   properties are strings and would simply jump. */
-
-@property --grow {
-  syntax: '<number>';
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --tuck {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.vine-sprout {
-  position: absolute;
-  width: clamp(1.9rem, 1.2rem + 2.6vw, 2.9rem);
-  /* The leaf's base sits at the left-centre of its box; put that on the vine. */
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.vine-sprout__art {
-  width: 100%;
-  height: auto;
-  overflow: visible;
-  /* The leaf pivots on its stalk's joint with the stem, which is the only
-     point on it that does not move when a leaf opens. */
-  transform-origin: 0% 50%;
-  /* Static shape (which way it faces, how big) composed with --grow and
-     --tuck, which are the only parts the opening touches. */
-  transform: scaleX(var(--flip)) rotate(calc(var(--rot) + var(--tuck)))
-    scale(calc(var(--s) * var(--grow)));
-}
-
-.vine-sprout__blade {
-  fill: var(--vine-leaf);
-}
-
-.vine-sprout__stalk {
-  fill: none;
-  stroke: var(--vine-stem);
-  stroke-width: 1.4;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.vine-sprout__vein {
-  fill: none;
-  stroke: var(--bg);
-  stroke-width: 0.9;
-  opacity: 0.7;
-}
-
-/* --- Opening ---------------------------------------------------------------
-
-   Gated on [data-vine="grow"], set before first paint by the inline script in
-   Shell.astro. Everything outside this gate is the finished vine, which is
-   what no-JS and reduced-motion get.
-
-   Each leaf carries its own --dur and --delay from Vine.astro: a run of
-   leaves that opened in lockstep would read as a single wipe rather than as
-   several plants doing the same thing at their own speed. */
-
-/* Transition LONGHANDS, deliberately, here and below. Lightning CSS folds a
-   `transition` shorthand into one declaration, and a custom property named in
-   it is not always carried through intact — the same class of silent drop
-   that took out the old scroll-driven animations. Longhands survive. */
-
-[data-vine='grow'] .vine-sprout,
-[data-vine='grow'] .leaf-node {
-  opacity: 0;
-  transition-property: opacity;
-  transition-duration: calc(var(--dur, 800ms) * 0.55);
-  transition-timing-function: ease-out;
-  transition-delay: var(--delay, 0ms);
-}
-
-[data-vine='grow'] .vine-sprout__art {
-  /* Furled: a sliver, folded back in along the stem. */
-  --grow: 0.06;
-  --tuck: -22deg;
-  transition-property: --grow, --tuck;
-  transition-duration: var(--dur, 800ms);
-  /* A little past full size, then back — a leaf opening under its own turgor
-     rather than a box being scaled up. */
-  transition-timing-function: cubic-bezier(0.22, 1.2, 0.4, 1),
-    cubic-bezier(0.32, 0.9, 0.35, 1);
-  transition-delay: var(--delay, 0ms);
-}
-
-[data-vine='grow'] .leaf-node svg {
-  transform: scale(0.68) rotate(-16deg);
-  transform-origin: 50% 100%;
-  transition-property: transform;
-  transition-duration: var(--dur, 800ms);
-  transition-timing-function: cubic-bezier(0.22, 1.2, 0.4, 1);
-  transition-delay: var(--delay, 0ms);
-}
-
-[data-vine='grow'] .vine-sprout.is-open,
-[data-vine='grow'] .leaf-node.is-open {
-  opacity: 1;
-}
-
-[data-vine='grow'] .vine-sprout.is-open .vine-sprout__art {
-  --grow: 1;
-  --tuck: 0deg;
-}
-
-[data-vine='grow'] .leaf-node.is-open svg {
-  transform: none;
-}
-
-/* Spine narrows on tablet, disappears on phones. The leaf survives as an
-   inline glyph beside the eyebrow so the motif is never simply deleted. */
-@media (max-width: 899px) {
-  :root {
-    --spine-w: 2rem;
-    --spine-gap: 0.9rem;
-  }
-
-  .leaf-node svg {
-    width: 1.4rem;
-  }
-}
-
-@media (max-width: 560px) {
-  :root {
-    --spine-w: 0rem;
-    --spine-gap: 0rem;
-  }
-
-  .page-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .page-grid > * {
-    grid-column: 1;
-  }
-
-  .vine {
-    display: none;
-  }
-
-  .leaf-node {
-    position: static;
-    display: inline-flex;
-    width: auto;
-    margin-inline-end: 0.5rem;
-    vertical-align: middle;
-  }
-
-  .leaf-node svg {
-    width: 1.1rem;
-  }
 }
 
 /* --- Hero ---------------------------------------------------------------- */
@@ -1996,22 +1778,4 @@ html {
     scroll-behavior: auto !important;
   }
 
-  /* The vine is complete and still: stem drawn, every leaf open. Nothing
-     here should be needed — [data-vine="grow"] is never set under reduced
-     motion, so the gate above simply does not apply — but the vine is the
-     one thing on the site whose whole point is motion, so it is worth
-     stating outright rather than inferring from a script's restraint. */
-  .vine-sprout,
-  .leaf-node {
-    opacity: 1;
-  }
-
-  .vine-sprout__art {
-    --grow: 1;
-    --tuck: 0deg;
-  }
-
-  .leaf-node svg {
-    transform: none;
-  }
 }

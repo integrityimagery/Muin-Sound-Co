@@ -4,15 +4,11 @@
  *
  * Its own composition. The hero is the one deliberately symmetric, centred
  * moment on the site, because it answers the arched lockup directly above it.
- * The vine then emerges from the base of that arch and runs the length of the
- * page: the logo is the top of the vine, and everything below is what grew
- * from it.
  *
  * The hero exists to get a song playing within seconds of landing, which is
  * the one thing competitors' stock-photo homepages cannot do.
  */
 import Shell from './Shell.astro';
-import Vine from '../components/Vine.astro';
 import AudioPlayer from '../components/AudioPlayer.astro';
 import { heroTrack } from '../data/tracks';
 
@@ -54,7 +50,6 @@ const { title, description, heading, positioning } = Astro.props;
       </div>
 
       <div class="page-grid">
-        <Vine />
         <slot />
       </div>
     </div>

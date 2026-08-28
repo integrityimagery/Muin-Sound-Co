@@ -3,7 +3,7 @@
  *
  * These check the things a static audit cannot: that the menu really traps
  * focus, that Escape really closes it, that the player is really operable from
- * the keyboard, and that reduced-motion really disables the vine.
+ * the keyboard, and that reduced motion really does still the header.
  *
  * Run:  npm run test:a11y   (with `npm run preview` serving on 4321)
  */
@@ -948,175 +948,35 @@ console.log('\n\x1b[1mHeader arrangement (links either side of the mark)\x1b[0m'
   );
 }
 
-/* --- The vine ---------------------------------------------------------------
-   The stem is always drawn; the leaves grow as you reach them. The rule is one
-   sentence — a leaf opens when it comes into view and then stays open — and
-   these check that the sentence is true on every page, long or short.
+/* --- Page gutters -----------------------------------------------------------
+   The content column used to sit in a two-column grid with a narrow spine down
+   the left for the vine, which made the left gutter wider than the right by the
+   spine's width. With the vine gone the shell's own padding is the gutter on
+   both sides, and this is what says so. */
 
-   This is what the rewrite bought. The old vine drew its stem on a scroll
-   clock, and a stem's length is its page's length: tie the clock to the
-   document and a short page arrives finished, tie it to the vine and the same
-   gesture grows different amounts on different pages. A leaf is a fixed point
-   in the page, so "open when you reach it" needs no clock at all. */
-
-console.log('\n\x1b[1mThe vine\x1b[0m');
+console.log('\n\x1b[1mPage gutters\x1b[0m');
 {
-  const routes = [
-    '/',
-    '/listen/',
-    '/packages/',
-    '/about/',
-    '/start/',
-    '/stories/',
-    '/stories/the-woods-called/',
-    '/stories/the-quiet-ones/',
-    '/stories/the-defiant-ones/',
-  ];
+  for (const width of [1600, 1280, 1024, 900, 700, 390, 360]) {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    await page.goto(BASE + '/about/', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(200);
 
-  /* Matches the observer's rootMargin in Vine.astro: a leaf is triggered once
-     its top clears 82% of the viewport height. The slack either side is for
-     the opening transition, which takes up to ~1.4s including its delay. */
-  const TRIGGER = 0.82;
-  const SLACK = 0.06;
-
-  const profiles = [];
-
-  for (const route of routes) {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await page.goto(BASE + route, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(400);
-    const max = await page.evaluate(
-      () => document.documentElement.scrollHeight - window.innerHeight
-    );
-
-    const steps = [];
-    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
-      await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * max));
-      // Long enough for the slowest leaf's delay plus its transition.
-      await page.waitForTimeout(1600);
-      steps.push(
-        await page.evaluate(
-          ([trigger, slack]) => {
-            const h = window.innerHeight;
-            const leaves = [...document.querySelectorAll('[data-leaf]:not([hidden])')].map((el) => ({
-              top: el.getBoundingClientRect().top,
-              open: Number(getComputedStyle(el).opacity) > 0.9,
-            }));
-            return {
-              total: leaves.length,
-              open: leaves.filter((l) => l.open).length,
-              // Past the trigger line but still shut.
-              late: leaves.filter((l) => l.top < h * (trigger - slack) && !l.open)
-                .length,
-              // Open while still well below it: opened without being reached.
-              early: leaves.filter((l) => l.top > h * (trigger + slack) && l.open)
-                .length,
-            };
-          },
-          [TRIGGER, SLACK]
-        )
-      );
-    }
+    const g = await page.evaluate(() => {
+      const grid = document.querySelector('.page-grid').getBoundingClientRect();
+      return {
+        left: grid.left,
+        right: window.innerWidth - grid.right,
+      };
+    });
     await page.close();
-    profiles.push({ route, steps });
-  }
 
-  for (const { route, steps } of profiles) {
-    const label = route.replace(/^\/|\/$/g, '') || 'home';
     check(
-      steps.every((s) => s.late === 0),
-      `${label}: every leaf you have reached is open`,
-      steps.map((s) => `${s.open}/${s.total} (${s.late} late)`).join(' ')
-    );
-    check(
-      steps.every((s) => s.early === 0),
-      `${label}: no leaf opens before you reach it`,
-      steps.map((s) => `${s.early} early`).join(' ')
-    );
-    check(
-      steps.every((s, i) => i === 0 || s.open >= steps[i - 1].open),
-      `${label}: only ever grows, never retreats`,
-      steps.map((s) => s.open).join(' → ')
-    );
-    check(
-      steps[4].open === steps[4].total && steps[4].total > 0,
-      `${label}: fully leafed at the foot of the page`,
-      `${steps[4].open}/${steps[4].total}`
+      Math.abs(g.left - g.right) <= 1,
+      `page gutters are even at ${width}px`,
+      `${g.left.toFixed(0)}px vs ${g.right.toFixed(0)}px`
     );
   }
 }
-
-/* Every leaf is generated — outline, size, angle, side — so a bug that reset
-   any of that to a constant would leave the vine working and looking stamped,
-   which no other check would catch. */
-{
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-  const variety = await page.evaluate(() => {
-    const sprouts = [...document.querySelectorAll('.vine-sprout:not([hidden])')];
-    const uniq = (fn) => new Set(sprouts.map(fn)).size;
-    return {
-      count: sprouts.length,
-      shapes: uniq((el) => el.querySelector('.vine-sprout__blade').getAttribute('d')),
-      sizes: uniq((el) => el.style.getPropertyValue('--s')),
-      angles: uniq((el) => el.style.getPropertyValue('--rot')),
-      sides: uniq((el) => el.style.getPropertyValue('--flip')),
-      timings: uniq((el) => el.style.getPropertyValue('--dur')),
-    };
-  });
-  await page.close();
-
-  check(variety.count >= 12, 'the vine carries a full set of leaves', `${variety.count}`);
-  check(
-    variety.shapes === variety.count,
-    'no two leaves are the same shape',
-    `${variety.shapes} outlines across ${variety.count} leaves`
-  );
-  check(variety.sides === 2, 'leaves grow from both strands', `${variety.sides} sides`);
-  check(
-    variety.sizes > variety.count * 0.8 && variety.angles > variety.count * 0.8,
-    'size and angle vary leaf to leaf',
-    `${variety.sizes} sizes, ${variety.angles} angles`
-  );
-  check(
-    variety.timings > variety.count * 0.8,
-    'leaves open at their own speeds rather than in lockstep',
-    `${variety.timings} durations`
-  );
-}
-
-{
-  const ctx = await browser.newContext({ reducedMotion: 'reduce' });
-  const page = await ctx.newPage();
-  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-  await page.evaluate(() => window.scrollTo(0, 400));
-  await page.waitForTimeout(400);
-
-  const r = await page.evaluate(() => {
-    const sprouts = [...document.querySelectorAll('.vine-sprout:not([hidden])')];
-    return {
-      armed: document.documentElement.dataset.vine ?? null,
-      total: sprouts.length,
-      open: sprouts.filter((el) => Number(getComputedStyle(el).opacity) > 0.99).length,
-      grow: sprouts.filter(
-        (el) =>
-          Number(
-            getComputedStyle(el.querySelector('.vine-sprout__art')).getPropertyValue(
-              '--grow'
-            )
-          ) === 1
-      ).length,
-    };
-  });
-  check(r.armed === null, 'reduced motion: the growth is never armed');
-  check(
-    r.open === r.total && r.grow === r.total && r.total > 0,
-    'reduced motion: the vine is complete and still',
-    JSON.stringify(r)
-  );
-  await ctx.close();
-}
-
 
 /* --- No-JS fallback -------------------------------------------------------- */
 
@@ -1147,26 +1007,6 @@ console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');
     JSON.stringify(stickiness)
   );
 
-  /* The vine's growth is an enhancement, and the thing it enhances has to be
-     whole on its own: stem drawn, every leaf open. A bare stem would be a
-     drawing with its subject missing. */
-  const vine = await page.evaluate(() => {
-    const sprouts = [...document.querySelectorAll('.vine-sprout:not([hidden])')];
-    return {
-      armed: document.documentElement.dataset.vine ?? null,
-      total: sprouts.length,
-      open: sprouts.filter((el) => Number(getComputedStyle(el).opacity) > 0.99).length,
-      dashoffset: getComputedStyle(document.querySelector('.vine__path--a'))
-        .strokeDashoffset,
-    };
-  });
-  check(
-    vine.armed === null && vine.open === vine.total && vine.total > 0,
-    'without JS the vine renders complete rather than bare',
-    JSON.stringify(vine)
-  );
-  check(vine.dashoffset === '0px', 'the stem is never left partly drawn');
-
   await ctx.close();
 }
 
@@ -1177,29 +1017,38 @@ console.log('\n\x1b[1mprefers-reduced-motion: reduce\x1b[0m');
   const ctx = await browser.newContext({ reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-  await page.evaluate(() => window.scrollTo(0, 600));
-  await page.waitForTimeout(400);
+
+  /* The header's collapse is the site's one remaining piece of motion: it
+     transitions its padding and --mark-w, and cross-fades the two marks. Under
+     reduced motion it must still ARRIVE — a collapse that refused to happen
+     would leave a full-height lockup pinned to the top of the screen — it just
+     must not be animated getting there. */
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(120);
 
   const state = await page.evaluate(() => {
-    const vine = document.querySelector('.vine__path--a');
-    const leaf = document.querySelector('.leaf-node');
+    const header = document.querySelector('[data-header]');
     return {
-      dashoffset: getComputedStyle(vine).strokeDashoffset,
-      dasharray: getComputedStyle(vine).strokeDasharray,
-      vineAnims: vine.getAnimations().length,
-      leafOpacity: getComputedStyle(leaf).opacity,
-      leafTransform: getComputedStyle(leaf).transform,
+      stuck: header.dataset.stuck,
+      running: header
+        .getAnimations({ subtree: true })
+        .filter((a) => a.playState === 'running').length,
+      full: getComputedStyle(document.querySelector('.brandmark__full')).opacity,
+      compact: getComputedStyle(document.querySelector('.brandmark__compact')).opacity,
     };
   });
 
-  check(state.vineAnims === 0, 'vine has no running animation under reduced motion');
+  check(state.stuck === 'true', 'reduced motion: the header still collapses');
   check(
-    state.dashoffset === '0px' && state.dasharray === 'none',
-    'vine renders fully drawn rather than hidden',
-    JSON.stringify({ dashoffset: state.dashoffset, dasharray: state.dasharray })
+    state.running === 0,
+    'reduced motion: nothing in the header is mid-animation',
+    `${state.running} running`
   );
-  check(state.leafOpacity === '1', 'leaves are visible rather than faded out');
-  check(state.leafTransform === 'none', 'leaves are not left mid-transform');
+  check(
+    state.full === '0' && state.compact === '1',
+    'reduced motion: the collapse lands on its final state at once',
+    JSON.stringify({ full: state.full, compact: state.compact })
+  );
 
   await ctx.close();
 }
