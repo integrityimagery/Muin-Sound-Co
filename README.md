@@ -293,6 +293,21 @@ Reduced motion switches it off at the source (`navigation: none`) rather than
 speeding it up: `::view-transition-*` pseudo-elements live in their own tree,
 so the blanket `*` rule in section 8 never reaches them.
 
+**Browsers without view transitions** get the arrival on its own, as an
+ordinary load animation on `main`, gated behind
+`@supports not (view-transition-name: none)`. Half the effect, and it is the
+half that carries the feeling — the exit fade needs a router to hold the old
+page on screen, and this site does not have one. The gate is deliberately the
+*property* and not the at-rule: `@supports at-rule(@view-transition)` would
+itself be unrecognised in exactly the old browsers the fallback is for, so the
+condition would be thrown out and the fallback would never apply.
+
+**If you cannot see it**, in order of likelihood: your OS has Reduce Motion on
+(the header collapse on scroll will also snap rather than ease — that is the
+tell); the page was served from cache, so hard-reload; or the numbers were too
+small. The first version shipped at 8px over 240ms, measured correctly, passed
+every test, and was in practice invisible. It is now 22px over 420ms.
+
 ### Known constraints
 
 - The placeholder audio is WAV because this environment has no MP3 encoder.

@@ -1818,7 +1818,7 @@ html {
    type printed through another's. It looked like a slideshow. So the two
    never overlap — the old one is gone before the new one starts. */
 ::view-transition-group(site-header) {
-  animation-duration: 200ms;
+  animation-duration: 260ms;
 }
 
 /* The outgoing page only fades. It is a static bitmap by this point, and
@@ -1826,20 +1826,20 @@ html {
    feel cheap. */
 ::view-transition-old(root) {
   animation-name: page-leave;
-  animation-duration: 110ms;
+  animation-duration: 150ms;
   animation-timing-function: ease-in;
   animation-fill-mode: both;
 }
 
 ::view-transition-new(root) {
   animation-name: page-enter;
-  animation-duration: 240ms;
+  animation-duration: 420ms;
   /* Decelerating, with the overshoot deliberately left out — a page that
      bounces is a page that is pleased with itself. */
   animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
   /* Exactly the outgoing page's duration: it starts the frame the old one
      finishes, so there is no double exposure and no blank pause either. */
-  animation-delay: 110ms;
+  animation-delay: 150ms;
   animation-fill-mode: both;
 }
 
@@ -1852,9 +1852,34 @@ html {
 @keyframes page-enter {
   from {
     opacity: 0;
-    /* Eight pixels. Enough to give the arrival a direction, not enough to
-       read as a slide. */
-    transform: translateY(8px);
+    /* This started at eight pixels over 240ms, which measured correctly and
+       was, in practice, invisible — the first version of this shipped and
+       could not be seen at all. Twenty-two pixels over 420ms is still a long
+       way from a slide, and it can actually be noticed. */
+    transform: translateY(22px);
+  }
+}
+
+/* Browsers without view transitions get the arrival on its own, as an
+   ordinary load animation on the content.
+
+   Half the effect, and it is the half that carries the feeling: the exit fade
+   needs a router to hold the old page on screen, and this site does not have
+   one and should not get one. The gate is deliberately the PROPERTY, not the
+   at-rule — `@supports at-rule(@view-transition)` would itself be unrecognised
+   in exactly the old browsers this is for, so the condition would be thrown
+   out and the fallback would never apply.
+
+   Under reduced motion the blanket rule in section 8 flattens this one, since
+   unlike the pseudo-elements above, `main` is an ordinary element. */
+@supports not (view-transition-name: none) {
+  main {
+    animation-name: page-enter;
+    animation-duration: 420ms;
+    animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
+    /* `both`, so the 0% keyframe applies before the animation starts and the
+       page does not flash its final position first. */
+    animation-fill-mode: both;
   }
 }
 

@@ -362,6 +362,10 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
       'the reduced-motion opt-out',
       /prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?@view-transition\s*\{\s*navigation:\s*none\s*\}/,
     ],
+    [
+      'the fallback for browsers without view transitions',
+      /@supports not \(view-transition-name:\s*none\)\s*\{\s*main\s*\{[^}]*page-enter/,
+    ],
   ];
 
   let missing = 0;
