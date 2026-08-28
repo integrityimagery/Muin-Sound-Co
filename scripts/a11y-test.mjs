@@ -894,6 +894,83 @@ console.log('\n\x1b[1mThe vine\x1b[0m');
   await ctx.close();
 }
 
+/* --- Vine fallback ----------------------------------------------------------
+   Scroll-driven animations only shipped in Chrome 115 / Firefox 144 / Safari
+   26, so most of the point of the vine was invisible on anything older. The
+   script path has to produce the same thing. ?vine-fallback forces it, and the
+   native rules are :not()-scoped so forcing it is a faithful simulation. */
+
+console.log('\n\x1b[1mVine fallback (no scroll-timeline support)\x1b[0m');
+{
+  const sample = async (url) => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(url, { waitUntil: 'networkidle' });
+    const max = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight
+    );
+    const rows = [];
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * max));
+      await page.waitForTimeout(420);
+      rows.push(
+        await page.evaluate(() => {
+          const path = document.querySelector('.vine__path--a');
+          const drawn = 1 - parseFloat(getComputedStyle(path).strokeDashoffset);
+          const m = path.getScreenCTM();
+          const pt = path.getPointAtLength(drawn * path.getTotalLength());
+          const tip = document.querySelector('.vine-tip').getBoundingClientRect();
+          return {
+            open: [...document.querySelectorAll('.vine-sprout__art')].filter(
+              (a) => Number(getComputedStyle(a).opacity) > 0.9
+            ).length,
+            drawn: Number(drawn.toFixed(2)),
+            gap: Math.abs(tip.bottom - (pt.y * m.d + m.f)),
+            onScreen: tip.top > -40 && tip.bottom < window.innerHeight + 40,
+          };
+        })
+      );
+    }
+    await page.close();
+    return rows;
+  };
+
+  const nativeRows = await sample(BASE + '/');
+  const fallbackRows = await sample(BASE + '/?vine-fallback');
+
+  check(
+    fallbackRows.every((r, i) => i === 0 || r.drawn >= fallbackRows[i - 1].drawn) &&
+      fallbackRows[0].drawn === 0 &&
+      fallbackRows[fallbackRows.length - 1].drawn === 1,
+    'fallback: the stem draws from nothing to complete',
+    fallbackRows.map((r) => r.drawn).join(' -> ')
+  );
+  check(
+    fallbackRows.every((r) => r.onScreen),
+    'fallback: the growing tip stays on screen'
+  );
+  check(
+    fallbackRows.every((r) => r.gap < 12),
+    'fallback: the tip stays on the end of the drawn stroke',
+    `worst ${Math.max(...fallbackRows.map((r) => r.gap)).toFixed(1)}px`
+  );
+  check(
+    fallbackRows[0].open === 0 && fallbackRows[fallbackRows.length - 1].open === 18,
+    'fallback: sprouts open progressively, all 18 by the foot of the page',
+    fallbackRows.map((r) => r.open).join(' -> ')
+  );
+  // It should look like the native path, not merely animate somehow.
+  const drift = Math.max(
+    ...fallbackRows.map((r, i) => Math.abs(r.open - nativeRows[i].open))
+  );
+  check(
+    drift <= 2,
+    'fallback tracks the native animation closely',
+    `native ${nativeRows.map((r) => r.open).join('/')} vs fallback ${fallbackRows
+      .map((r) => r.open)
+      .join('/')}`
+  );
+}
+
 /* --- No-JS fallback -------------------------------------------------------- */
 
 console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');

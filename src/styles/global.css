@@ -1078,7 +1078,7 @@ html {
 
 @supports (animation-timeline: scroll()) {
   @media (prefers-reduced-motion: no-preference) {
-    .vine__path {
+    html:not([data-vine-fallback='on']) .vine__path {
       /* pathLength="1" is set on the element, so this is geometry-independent. */
       stroke-dasharray: 1;
       stroke-dashoffset: 1;
@@ -1230,7 +1230,7 @@ html {
 
 @supports (animation-timeline: scroll()) {
   @media (prefers-reduced-motion: no-preference) {
-    .vine-tip {
+    html:not([data-vine-fallback='on']) .vine-tip {
       opacity: 1;
       animation-name: vine-tip-travel;
       animation-duration: auto;
@@ -1293,7 +1293,7 @@ html {
    screen — behind the tip, which by then has already passed it. */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
-    .vine-sprout__art {
+    html:not([data-vine-fallback='on']) .vine-sprout__art {
       animation-name: vine-sprout;
       animation-duration: auto;
       animation-timing-function: linear;
@@ -1329,9 +1329,28 @@ html {
   }
 }
 
+/* --- Fallback for browsers without scroll-driven animations ---------------
+
+   Scroll timelines shipped in Chrome 115, Firefox 144 and Safari 26. Before
+   those the vine simply rendered finished and nothing moved, which is most of
+   the point of it gone.
+
+   The script in Vine.astro sets this attribute and then writes the values
+   directly. The native rules above are scoped with :not() so they never run at
+   the same time — a scroll-driven animation would otherwise keep animating
+   stroke-dashoffset, and a running animation beats an inline style.
+
+   All this rule does is get out of the way. */
+
+[data-vine-fallback='on'] .vine-tip {
+  /* Positioned in pixels by script rather than by the keyframes. */
+  transition: none;
+}
+
+
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
-    .leaf-node {
+    html:not([data-vine-fallback='on']) .leaf-node {
       opacity: 0;
       transform: scale(0.7) rotate(-12deg);
       transform-origin: 50% 20%;
@@ -1346,6 +1365,10 @@ html {
 }
 
 @keyframes leaf-unfurl {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotate(-12deg);
+  }
   to {
     opacity: 1;
     transform: scale(1) rotate(0deg);

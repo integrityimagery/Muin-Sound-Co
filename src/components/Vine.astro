@@ -113,6 +113,110 @@ const sprouts = [
   </span>
 </div>
 
+<script>
+  /**
+   * Fallback for browsers without CSS scroll-driven animations.
+   *
+   * The vine is animated natively by `animation-timeline: scroll()/view()`,
+   * which costs no JavaScript and no per-frame work — but that shipped in
+   * Chrome 115, Firefox 144 and Safari 26. Older browsers got the graceful
+   * degradation (vine drawn, every leaf open) and so saw no animation at all,
+   * which is most of the point of the thing gone.
+   *
+   * This writes the values directly rather than driving the CSS keyframes.
+   * The tip's position comes from `getPointAtLength` on the actual path, so it
+   * needs no copy of the curve and is, if anything, more accurate than the
+   * sampled keyframes the native path uses.
+   *
+   * The native rules are scoped with `:not([data-vine-fallback])` so the two
+   * never run together: a scroll-driven animation on stroke-dashoffset would
+   * otherwise win over an inline style and fight this.
+   */
+  const forced = new URLSearchParams(location.search).has('vine-fallback');
+  const native = CSS.supports('animation-timeline', 'scroll()');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if ((forced || !native) && !still) {
+    const vine = document.querySelector<HTMLElement>('.vine');
+    const strands = [
+      ...document.querySelectorAll<SVGPathElement>('.vine__path'),
+    ];
+    const tip = document.querySelector<HTMLElement>('.vine-tip');
+    const lead = document.querySelector<SVGPathElement>('.vine__path--a');
+    const sprouts = [
+      ...document.querySelectorAll<HTMLElement>('.vine-sprout__art, .leaf-node'),
+    ];
+
+    if (vine && lead && tip) {
+      document.documentElement.dataset.vineFallback = 'on';
+
+      const clamp = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+      let queued = false;
+
+      const paint = () => {
+        queued = false;
+        // Hidden below 560px; nothing to drive.
+        if (!vine.offsetParent) return;
+
+        const doc = document.documentElement;
+        const max = doc.scrollHeight - window.innerHeight;
+        const p = max > 0 ? clamp(window.scrollY / max) : 1;
+
+        // Draw the strands. pathLength="1" makes these values geometry-free.
+        strands.forEach((path, i) => {
+          // The second strand trails, as it does natively.
+          const q = clamp(i === 0 ? p : p - 0.03);
+          path.style.strokeDasharray = '1';
+          path.style.strokeDashoffset = String(1 - q);
+        });
+
+        // The growing point, taken from the real curve.
+        const m = lead.getScreenCTM();
+        if (m) {
+          const pt = lead.getPointAtLength(p * lead.getTotalLength());
+          const box = vine.getBoundingClientRect();
+          tip.style.opacity = '1';
+          tip.style.left = `${pt.x * m.a + m.e - box.left}px`;
+          tip.style.top = `${pt.y * m.d + m.f - box.top}px`;
+        }
+
+        /* Sprouts open on their own position, mirroring the native `view()`
+           range: each starts as it clears the bottom edge and finishes about a
+           third of a viewport later. The shape is a plain ramp with the same
+           slight overshoot as the keyframes. */
+        const vh = window.innerHeight;
+        for (const el of sprouts) {
+          const sp = clamp((vh - el.getBoundingClientRect().top) / (vh * 0.38));
+
+          if (el.classList.contains('leaf-node')) {
+            // Matches @keyframes leaf-unfurl: 0.7 -> 1, -12deg -> 0.
+            el.style.opacity = String(sp);
+            el.style.transform = `scale(${(0.7 + 0.3 * sp).toFixed(3)}) rotate(${(-12 + 12 * sp).toFixed(2)}deg)`;
+          } else {
+            // Matches @keyframes vine-sprout, overshoot included.
+            el.style.opacity = String(clamp(sp / 0.45));
+            const grow =
+              sp < 0.78
+                ? 0.04 + (1.07 - 0.04) * (sp / 0.78)
+                : 1.07 - 0.07 * ((sp - 0.78) / 0.22);
+            el.style.setProperty('--grow', grow.toFixed(3));
+          }
+        }
+      };
+
+      const schedule = () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(paint);
+      };
+
+      paint();
+      addEventListener('scroll', schedule, { passive: true });
+      addEventListener('resize', schedule, { passive: true });
+    }
+  }
+</script>
+
 <style>
   /* The second strand sits back so the pair reads as depth rather than as
      two equal lines. */

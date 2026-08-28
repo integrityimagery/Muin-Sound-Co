@@ -195,6 +195,25 @@ Search the codebase for `PLACEHOLDER`. Every stand-in is marked.
 - [ ] Real audio as MP3, replacing `public/audio/placeholder-*.wav`, and update
       `src/data/tracks.ts`
 
+### The vine's motion
+
+The vine grows on scroll: the stem draws, a tip leads the draw, and sprouts
+unfurl behind it. Natively this is CSS scroll-driven animation
+(`animation-timeline: scroll()/view()`) — no JavaScript, no per-frame work.
+
+That only shipped in **Chrome 115, Firefox 144 and Safari 26**, so anything
+older would have seen a finished vine and no motion at all. `Vine.astro`
+carries a script fallback that writes the same values directly; it takes the
+tip's position from `getPointAtLength` on the real path, so it needs no copy of
+the curve. The native rules are `:not([data-vine-fallback])`-scoped so the two
+never run together — a scroll-driven animation on `stroke-dashoffset` would
+otherwise beat an inline style and fight it.
+
+Append **`?vine-fallback`** to any URL to force the script path in a browser
+that supports the native one. Because the two are mutually exclusive in CSS,
+that is a faithful simulation, and `npm run test:a11y` asserts the two produce
+the same thing.
+
 ### Known constraints
 
 - The placeholder audio is WAV because this environment has no MP3 encoder.
