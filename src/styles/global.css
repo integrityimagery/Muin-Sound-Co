@@ -560,8 +560,22 @@ figure {
 }
 
 .site-header {
-  --mark-w: clamp(13rem, 9rem + 18vw, 21rem);
-  padding-block: clamp(1.5rem, 1rem + 2vw, 2.75rem) clamp(1rem, 0.75rem + 1vw, 1.75rem);
+  /* The lockup at three quarters of its former width. It was sized to be the
+     page's opening image, stacked above the nav; seated between two columns
+     of links it is a mark rather than a hero, and the old size crowded them. */
+  --mark-w: clamp(10rem, 20vw - 0.75rem, 15.75rem);
+  /* Distance from the mark to the first link on either side. Shared by the
+     header grid and the nav grid — see the note on those two below.
+
+     The three measurements here (mark, this gap, and the nav's own item gap)
+     are tuned together against ONE constraint: at 900px, where the side-by-side
+     layout starts, the heavier group — For Photographers / About / Start Here —
+     has to fit its column on a single line. Widen any of them and it wraps,
+     which costs the header 50px and leaves one side two lines and the other
+     one. The numbers came off the ruler, not out of the air; `npm run
+     test:a11y` re-measures them at four widths. */
+  --header-gap: clamp(0.85rem, 4.2vw - 1.5rem, 1.875rem);
+  padding-block: clamp(1.25rem, 0.9rem + 1.4vw, 2rem);
   transition:
     padding 0.32s ease,
     background-color 0.32s ease,
@@ -580,6 +594,73 @@ figure {
 
 .site-header {
   text-align: center;
+}
+
+/* --- Wide layout: links, mark, links -------------------------------------
+
+   TWO grids with an identical template, not one grid and a subgrid.
+
+   The mark and the nav are siblings, and the nav has to keep its own box —
+   it is the navigation landmark, and `display: contents` on a landmark is
+   exactly the kind of thing that has historically dropped it out of the
+   accessibility tree. So the nav is laid over the same row as the mark,
+   spanning the full width, and given the same three columns. Its middle
+   column is empty; the mark sits in the header grid's middle column. Because
+   both templates use --mark-w for that column and the same --header-gap, the
+   two agree to the pixel, and they keep agreeing through the collapse, since
+   --mark-w is a registered property that transitions.
+
+   The nav's box therefore covers the mark. `z-index` on the brand rather than
+   putting it later in the DOM: the logo links home, and it should be the
+   first thing you reach with the keyboard, not the seventh. The submenu sits
+   at z-index 40, well clear. */
+
+@media (min-width: 900px) {
+  .site-header__inner,
+  .site-header .nav {
+    display: grid;
+    grid-template-columns: 1fr var(--mark-w) 1fr;
+    column-gap: var(--header-gap);
+    align-items: center;
+  }
+
+  .site-header__brand {
+    grid-column: 2;
+    grid-row: 1;
+    width: var(--mark-w);
+    /* Above the nav's empty middle column, which would otherwise swallow
+       clicks meant for the logo. */
+    position: relative;
+    z-index: 1;
+  }
+
+  .site-header .nav {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  /* The panel is a plain <div> with no role, so collapsing it is free — it
+     exists for the off-canvas layout below 900px and has no job up here. */
+  .nav__panel {
+    display: contents;
+  }
+
+  /* Both groups face the mark, so the gap either side of it is exactly
+     --header-gap however wide or narrow the two groups happen to be. Centring
+     them in their columns instead leaves the mark with a different amount of
+     air on each side, which reads as a mistake.
+
+     Scoped to .site-header purely for specificity: the base .nav__list rule
+     centres its items and is declared further down the file. */
+  .site-header .nav__list--start {
+    grid-column: 1;
+    justify-content: flex-end;
+  }
+
+  .site-header .nav__list--end {
+    grid-column: 3;
+    justify-content: flex-start;
+  }
 }
 
 /* --- The marks ------------------------------------------------------------ */
@@ -635,7 +716,7 @@ figure {
 
 .site-header[data-stuck='true'] {
   --mark-w: clamp(6.8rem, 5.5rem + 5vw, 9rem);
-  padding-block: 0.5rem 0.55rem;
+  padding-block: 0.5rem;
   border-block-end: 1px solid var(--border);
 }
 
@@ -652,33 +733,38 @@ figure {
   opacity: 1;
 }
 
-/* The brand stays centred above the nav in both states — it never jumps to a
-   corner. Only the spacing tightens. */
-.site-header[data-stuck='true'] .nav {
-  margin-block-start: 0.45rem;
-}
+/* --- Narrow layout -------------------------------------------------------
 
-/* Below the nav breakpoint the "nav" is a single hamburger, and stacking it
-   under the wordmark pushed the collapsed header to 103px — 16% of a 360x640
-   screen, over the brief's budget. Lifting it out of the stack and centring it
-   against the mark keeps the wordmark centred AND the header short. */
+   Below the nav breakpoint the whole "navigation" is one hamburger, so there
+   is nothing to seat on either side of the mark — but the arrangement is the
+   same idea: the mark centred, the nav beside it, the two vertically centred
+   on each other. Stacking the hamburger under the wordmark instead pushed the
+   collapsed header to 103px, 16% of a 360x640 screen and over the brief's
+   budget.
+
+   The mark is smaller here than the wide layout's clamp would give it: at
+   360px a 160px mark and a ~90px toggle do not both fit inside the gutters. */
 @media (max-width: 899px) {
-  .site-header[data-stuck='true'] .site-header__inner {
+  .site-header {
+    --mark-w: clamp(7.5rem, 4rem + 12vw, 11rem);
+  }
+
+  .site-header__inner {
     position: relative;
   }
 
-  .site-header[data-stuck='true'] .nav {
-    margin-block-start: 0;
+  .site-header__brand {
+    width: var(--mark-w);
+    margin-inline: auto;
   }
 
-  .site-header[data-stuck='true'] .nav__toggle {
+  .nav__toggle {
     position: absolute;
     inset-block-start: 50%;
     inset-inline-end: 0;
     /* Safe here: the toggle is a SIBLING of the fixed off-canvas panel, not an
        ancestor, so this creates no containing block for it. */
     transform: translateY(-50%);
-    margin-block-start: 0;
   }
 }
 
@@ -689,13 +775,8 @@ html {
 
 /* --- Navigation ---------------------------------------------------------- */
 
-/* One <nav>, one list, no duplicated markup. CSS switches it between an
-   inline bar and an off-canvas panel; JS only toggles state. */
-
-.nav {
-  margin-block-start: 1.25rem;
-}
-
+/* One <nav>, two lists, no duplicated markup. CSS switches them between a bar
+   either side of the mark and an off-canvas panel; JS only toggles state. */
 
 .nav__toggle {
   display: none;
@@ -741,7 +822,8 @@ html {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: clamp(0.75rem, 0.4rem + 1.4vw, 1.75rem);
+  /* Tightens as the header narrows — see the note on --header-gap. */
+  gap: clamp(0.5rem, 3.7vw - 1.55rem, 1.5rem);
   list-style: none;
   padding: 0;
   margin: 0;

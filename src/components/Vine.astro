@@ -260,13 +260,35 @@ for (let segment = 0; segment < SEGMENTS; segment++) {
    */
   const root = document.documentElement;
 
+  /**
+   * Arming waits for the layout to settle, and that is not belt-and-braces.
+   *
+   * The header is `position: fixed`, and its height is reserved by a spacer
+   * that a script sizes from a real measurement. Until that happens the page
+   * sits ~250px higher than it will end up. Arm before it and the leaves in
+   * that band open for content the reader has not reached yet — and because
+   * growth never runs backwards, they stay open. It showed up as two leaves
+   * on /packages/ standing open below the fold, intermittently, depending on
+   * whether the web fonts were cached.
+   *
+   * Fonts first (they change the header's height), then two frames: the
+   * spacer's own font callback runs in the microtask checkpoint, so one frame
+   * would already do, and the second is the cheap insurance.
+   */
+  const settled = (run: () => void) => {
+    const fonts = document.fonts?.ready ?? Promise.resolve();
+    fonts.then(() =>
+      requestAnimationFrame(() => requestAnimationFrame(run))
+    );
+  };
+
   if (root.dataset.vine === 'grow') {
     const leaves = new Set(document.querySelectorAll<HTMLElement>('[data-leaf]'));
 
     if (!('IntersectionObserver' in window) || leaves.size === 0) {
       // No way to time the opening: show the finished vine, not a bare stem.
       delete root.dataset.vine;
-    } else {
+    } else settled(() => {
       /** How far down the viewport a leaf must be before it opens. */
       const TRIGGER = 0.82;
 
@@ -313,7 +335,7 @@ for (let segment = 0; segment < SEGMENTS; segment++) {
       }
 
       for (const leaf of leaves) observer.observe(leaf);
-    }
+    });
   }
 </script>
 

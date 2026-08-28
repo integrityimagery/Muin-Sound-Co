@@ -794,6 +794,159 @@ console.log('\n\x1b[1mHeader parity across page types\x1b[0m');
   );
 }
 
+/* --- Header arrangement -----------------------------------------------------
+   Links, mark, links — one row, vertically centred on each other.
+
+   The mark and the nav are siblings laid over the same grid row with matching
+   templates, so "centred" and "equal gaps" are consequences of two independent
+   declarations agreeing. Nothing in the CSS fails loudly when they stop
+   agreeing; the header just goes quietly lopsided. Hence measuring it. */
+
+console.log('\n\x1b[1mHeader arrangement (links either side of the mark)\x1b[0m');
+{
+  const readRow = () => {
+    const box = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, mid: r.top + r.height / 2, h: r.height };
+    };
+    const fit = (sel) => {
+      const ul = document.querySelector(sel);
+      const items = [...ul.querySelectorAll(':scope > li')];
+      const left = Math.min(...items.map((l) => l.getBoundingClientRect().left));
+      const right = Math.max(...items.map((l) => l.getBoundingClientRect().right));
+      const tallest = Math.max(...items.map((l) => l.getBoundingClientRect().height));
+      const r = ul.getBoundingClientRect();
+      return { slack: r.width - (right - left), wrapped: r.height > tallest + 2 };
+    };
+    return {
+      start: box('.nav__list--start'),
+      end: box('.nav__list--end'),
+      mark: box('.site-header__brand'),
+      startFit: fit('.nav__list--start'),
+      endFit: fit('.nav__list--end'),
+    };
+  };
+
+  /* 900px is the tightest case by construction — it is where the side-by-side
+     layout starts, and where the heavier group has the least room. */
+  for (const width of [900, 1000, 1280, 1600]) {
+    for (const [label, route] of [
+      ['home', '/'],
+      ['story', '/stories/the-woods-called/'],
+    ]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(BASE + route, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(300);
+
+      const open = await page.evaluate(readRow);
+      await page.evaluate(() => window.scrollTo(0, 900));
+      await page.waitForTimeout(500);
+      const shut = await page.evaluate(readRow);
+      await page.close();
+
+      const at = `${label} @${width}`;
+
+      for (const [state, r] of [
+        ['expanded', open],
+        ['collapsed', shut],
+      ]) {
+        check(
+          r.start.right < r.mark.left && r.mark.right < r.end.left,
+          `${at}: ${state} — links sit either side of the mark`,
+          `${Math.round(r.start.right)} | ${Math.round(r.mark.left)}–${Math.round(r.mark.right)} | ${Math.round(r.end.left)}`
+        );
+
+        const drift = Math.max(
+          Math.abs(r.start.mid - r.mark.mid),
+          Math.abs(r.end.mid - r.mark.mid)
+        );
+        check(
+          drift <= 1,
+          `${at}: ${state} — links are vertically centred on the mark`,
+          `worst drift ${drift.toFixed(1)}px`
+        );
+
+        const lead = r.mark.left - r.start.right;
+        const trail = r.end.left - r.mark.right;
+        check(
+          Math.abs(lead - trail) <= 1,
+          `${at}: ${state} — the mark has the same air on both sides`,
+          `${lead.toFixed(0)}px vs ${trail.toFixed(0)}px`
+        );
+      }
+
+      /* One line each. Wrapping is the failure this layout is tuned against:
+         it costs ~50px of header and leaves one side two lines deep and the
+         other one, which reads as a broken header rather than a dense one. */
+      check(
+        !open.startFit.wrapped && !open.endFit.wrapped,
+        `${at}: neither group wraps to a second line`,
+        `slack ${open.startFit.slack.toFixed(0)}px / ${open.endFit.slack.toFixed(0)}px`
+      );
+      check(
+        Math.min(open.startFit.slack, open.endFit.slack) > 4,
+        `${at}: the tighter group keeps room to spare`,
+        `${Math.min(open.startFit.slack, open.endFit.slack).toFixed(0)}px`
+      );
+    }
+  }
+}
+
+/* Splitting one list into two is only safe if it stays ONE landmark with every
+   link inside it. `display: contents` on the panel is what makes the two lists
+   grid items of the nav, and dropping an element out of the accessibility tree
+   is exactly what that property has a history of doing.
+
+   Read from Chromium's own accessibility tree over CDP, not from Playwright's
+   role engine: the role engine computes roles from the DOM, so it would report
+   a healthy landmark whether or not the browser actually exposes one — which
+   is the entire question here. */
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+
+  const labels = await page.evaluate(() =>
+    [...document.querySelectorAll('.nav__list > li > a')].map((a) => a.textContent.trim())
+  );
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Accessibility.enable');
+  const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+  await page.close();
+
+  const byId = new Map(nodes.map((n) => [n.nodeId, n]));
+  const navs = nodes.filter((n) => n.role?.value === 'navigation' && !n.ignored);
+
+  check(navs.length === 1, 'the split nav is still one navigation landmark', `${navs.length}`);
+  check(
+    navs[0]?.name?.value === 'Main',
+    'the landmark keeps its name',
+    JSON.stringify(navs[0]?.name?.value)
+  );
+
+  const inside = new Set();
+  const walk = (node) => {
+    if (!node) return;
+    if (node.role?.value === 'link' && node.name?.value) inside.add(node.name.value.trim());
+    (node.childIds ?? []).forEach((id) => walk(byId.get(id)));
+  };
+  walk(navs[0]);
+
+  /* Case-insensitive: the bar is `text-transform: uppercase`, and Chromium
+     applies that to the accessible name, so the tree says STORIES where the
+     markup says Stories. */
+  const named = [...inside].map((n) => n.toLowerCase());
+  const missing = labels.filter(
+    (label) => !named.some((n) => n.includes(label.toLowerCase()))
+  );
+  check(
+    missing.length === 0,
+    'every link from both groups is inside that landmark',
+    missing.length ? `missing ${missing.join(', ')}` : `${labels.length} links`
+  );
+}
 
 /* --- The vine ---------------------------------------------------------------
    The stem is always drawn; the leaves grow as you reach them. The rule is one

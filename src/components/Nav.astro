@@ -2,9 +2,14 @@
 /**
  * Main navigation.
  *
- * One <nav>, one list, no duplicated markup — CSS switches the same list
- * between an inline bar (>=900px) and an off-canvas panel (<900px), so there
- * is only ever one set of links in the accessibility tree.
+ * One <nav>, no duplicated markup — CSS switches the same links between an
+ * inline bar (>=900px) and an off-canvas panel (<900px), so there is only ever
+ * one set of them in the accessibility tree.
+ *
+ * The items are split into two lists so the wide layout can seat them either
+ * side of the logo. It is a SPLIT and not a duplication: reading order is
+ * still left group then right group, which is exactly the visual order, and
+ * below 900px the two simply stack inside the off-canvas panel.
  *
  * Items with children follow the "disclosure navigation with top-level links"
  * pattern: a real link to the section, plus a SEPARATE small toggle button
@@ -25,6 +30,15 @@ interface Props {
 }
 
 const { pathname } = Astro.props;
+
+/* Split down the middle. Deriving it rather than hard-coding three and three
+   means adding a seventh item rebalances the header instead of quietly
+   lopsiding it — and the CTA, which is always last, stays on the right. */
+const split = Math.ceil(nav.length / 2);
+const groups = [
+  { side: 'start', items: nav.slice(0, split), offset: 0 },
+  { side: 'end', items: nav.slice(split), offset: split },
+];
 ---
 
 <nav class="nav" aria-label="Main" data-nav data-open="false">
@@ -41,74 +55,79 @@ const { pathname } = Astro.props;
 
   <div class="nav__panel" id="main-nav-panel" data-nav-panel>
     <button type="button" class="nav__close" data-nav-close>Close</button>
-    <ul class="nav__list">
-      {
-        nav.map((item, i) => {
-          const current = isCurrent(withBase(item.href), pathname);
-          const inSection = isCurrentSection(withBase(item.href), pathname);
-          const menuId = `nav-submenu-${i}`;
+    {
+      groups.map((group) => (
+        <ul class={`nav__list nav__list--${group.side}`}>
+          {group.items.map((item, n) => {
+            /* Ids have to stay unique across the two lists, so they are keyed
+               on the item's position in `nav`, not in its group. */
+            const i = group.offset + n;
+            const current = isCurrent(withBase(item.href), pathname);
+            const inSection = isCurrentSection(withBase(item.href), pathname);
+            const menuId = `nav-submenu-${i}`;
 
-          return (
-            <li class={item.children ? 'nav__item nav__item--has-menu' : 'nav__item'}>
-              <a
-                href={withBase(item.href)}
-                class={item.primary ? 'btn btn--primary nav__cta' : 'nav__link'}
-                aria-current={current ? 'page' : inSection ? 'true' : undefined}
-              >
-                {item.label}
-              </a>
+            return (
+              <li class={item.children ? 'nav__item nav__item--has-menu' : 'nav__item'}>
+                <a
+                  href={withBase(item.href)}
+                  class={item.primary ? 'btn btn--primary nav__cta' : 'nav__link'}
+                  aria-current={current ? 'page' : inSection ? 'true' : undefined}
+                >
+                  {item.label}
+                </a>
 
-              {item.children && (
-                <>
-                  <button
-                    type="button"
-                    class="nav__disclosure"
-                    aria-expanded="false"
-                    aria-controls={menuId}
-                    data-nav-disclosure
-                  >
-                    {/* The button needs its own name — the adjacent link's text
-                        is not it, and "expand" alone says nothing. */}
-                    <span class="visually-hidden">{item.label} submenu</span>
-                    <svg
-                      class="nav__chevron"
-                      viewBox="0 0 12 8"
-                      aria-hidden="true"
-                      focusable="false"
+                {item.children && (
+                  <>
+                    <button
+                      type="button"
+                      class="nav__disclosure"
+                      aria-expanded="false"
+                      aria-controls={menuId}
+                      data-nav-disclosure
                     >
-                      <path
-                        d="M1 1.5 L6 6.5 L11 1.5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
+                      {/* The button needs its own name — the adjacent link's
+                          text is not it, and "expand" alone says nothing. */}
+                      <span class="visually-hidden">{item.label} submenu</span>
+                      <svg
+                        class="nav__chevron"
+                        viewBox="0 0 12 8"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path
+                          d="M1 1.5 L6 6.5 L11 1.5"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
 
-                  <ul class="nav__submenu" id={menuId} data-nav-submenu hidden>
-                    {item.children.map((child) => (
-                      <li>
-                        <a
-                          href={withBase(child.href)}
-                          class="nav__sublink"
-                          aria-current={
-                            isCurrent(withBase(child.href), pathname) ? 'page' : undefined
-                          }
-                        >
-                          {child.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </li>
-          );
-        })
-      }
-    </ul>
+                    <ul class="nav__submenu" id={menuId} data-nav-submenu hidden>
+                      {item.children.map((child) => (
+                        <li>
+                          <a
+                            href={withBase(child.href)}
+                            class="nav__sublink"
+                            aria-current={
+                              isCurrent(withBase(child.href), pathname) ? 'page' : undefined
+                            }
+                          >
+                            {child.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ))
+    }
   </div>
 </nav>
 

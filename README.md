@@ -195,6 +195,54 @@ Search the codebase for `PLACEHOLDER`. Every stand-in is marked.
 - [ ] Real audio as MP3, replacing `public/audio/placeholder-*.wav`, and update
       `src/data/tracks.ts`
 
+### The header
+
+One header on every page, including the story pages: **links, mark, links** in
+a single row, vertically centred on each other, collapsing to the wordmark on
+scroll without moving anything below it.
+
+Two details are load-bearing.
+
+**It is `position: fixed` with a measured spacer, not `position: sticky`.** A
+sticky header is still in the document flow, so shrinking it on scroll pulls
+everything below it up by the difference — a ~230px lurch mid-scroll that no
+amount of easing disguises. Out of flow with a constant-height spacer, the
+collapse moves nothing but the header. **Never give `.site-header` a
+`transform`**: a transformed ancestor becomes the containing block for
+`position: fixed` descendants, which would break the off-canvas mobile menu
+nested inside it.
+
+**The row is two grids with an identical template, not a grid and a subgrid.**
+The mark and the nav are siblings, and the nav has to keep its own box — it is
+the navigation landmark, and `display: contents` on a landmark is exactly the
+kind of thing that has historically dropped it out of the accessibility tree.
+So the nav is laid over the same row as the mark, spanning the full width, with
+the same three columns; its middle column is empty and the mark sits in the
+header grid's. Both templates use `--mark-w` for that column and the same
+`--header-gap`, so they agree to the pixel — and keep agreeing through the
+collapse, since `--mark-w` is a registered property that transitions.
+
+The nav items are split into two lists rather than duplicated, so reading order
+is left group then right group, which is the visual order. The split point is
+derived (`Math.ceil(nav.length / 2)`), so a seventh item rebalances the header
+instead of quietly lopsiding it.
+
+Three measurements — `--mark-w`, `--header-gap` and the nav's own item gap —
+are tuned together against one constraint: at 900px, where the side-by-side
+layout starts, the heavier group (For Photographers / About / Start Here) has
+to fit its column on one line. Widen any of them and it wraps, costing ~50px of
+header and leaving one side two lines deep and the other one.
+`npm run test:a11y` re-measures this at four widths, on two page types, in both
+states, and also reads Chromium's own accessibility tree over CDP to confirm
+the split nav is still a single `navigation` landmark with all six links inside
+it.
+
+Below 900px the whole navigation is one hamburger, so there is nothing to seat
+either side of the mark — but the arrangement is the same idea: mark centred,
+nav beside it, the two vertically centred. Stacking the hamburger under the
+wordmark instead pushed the collapsed header to 16% of a 360x640 screen, over
+the brief's 15% budget.
+
 ### The vine's motion
 
 **The stem is always there. Only the leaves grow**, opening as you reach them
