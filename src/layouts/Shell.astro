@@ -77,6 +77,22 @@ const fullTitle = pathname === '/' ? title : `${title} — ${site.name}`;
     <meta name="generator" content={Astro.generator} />
 
     <Schema service={schemaService} includeFaq={schemaFaq} theme={theme} />
+
+    {/* Arms the vine's leaf-growth before first paint.
+
+        It has to run here, inline and blocking, rather than in Vine.astro:
+        the leaves' closed state is CSS gated on this attribute, and a
+        deferred module script would set it after the open leaves had already
+        been painted — a visible snap shut on every page load.
+
+        Reduced motion never sets it, and neither does a browser with
+        JavaScript off, so in both cases the CSS default stands: the vine
+        complete and still. */}
+    <script is:inline>
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.dataset.vine = 'grow';
+      }
+    </script>
   </head>
 
   <body class={bodyClass}>

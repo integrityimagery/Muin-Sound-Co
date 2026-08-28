@@ -796,10 +796,15 @@ console.log('\n\x1b[1mHeader parity across page types\x1b[0m');
 
 
 /* --- The vine ---------------------------------------------------------------
-   It should read as growing, and — the part that went wrong before — it should
-   behave the SAME on every page. Progress used to be tied to document scroll
-   while the vine spans only the content grid: 80% of the homepage but 30% of a
-   short page, so short pages arrived fully leafed and finished early. */
+   The stem is always drawn; the leaves grow as you reach them. The rule is one
+   sentence — a leaf opens when it comes into view and then stays open — and
+   these check that the sentence is true on every page, long or short.
+
+   This is what the rewrite bought. The old vine drew its stem on a scroll
+   clock, and a stem's length is its page's length: tie the clock to the
+   document and a short page arrives finished, tie it to the vine and the same
+   gesture grows different amounts on different pages. A leaf is a fixed point
+   in the page, so "open when you reach it" needs no clock at all. */
 
 console.log('\n\x1b[1mThe vine\x1b[0m');
 {
@@ -815,6 +820,12 @@ console.log('\n\x1b[1mThe vine\x1b[0m');
     '/stories/the-defiant-ones/',
   ];
 
+  /* Matches the observer's rootMargin in Vine.astro: a leaf is triggered once
+     its top clears 82% of the viewport height. The slack either side is for
+     the opening transition, which takes up to ~1.4s including its delay. */
+  const TRIGGER = 0.82;
+  const SLACK = 0.06;
+
   const profiles = [];
 
   for (const route of routes) {
@@ -828,23 +839,29 @@ console.log('\n\x1b[1mThe vine\x1b[0m');
     const steps = [];
     for (const f of [0, 0.25, 0.5, 0.75, 1]) {
       await page.evaluate((y) => window.scrollTo(0, y), Math.round(f * max));
-      await page.waitForTimeout(320);
+      // Long enough for the slowest leaf's delay plus its transition.
+      await page.waitForTimeout(1600);
       steps.push(
-        await page.evaluate(() => {
-          const path = document.querySelector('.vine__path--a');
-          const drawn = 1 - parseFloat(getComputedStyle(path).strokeDashoffset);
-          const m = path.getScreenCTM();
-          const pt = path.getPointAtLength(drawn * path.getTotalLength());
-          const tip = document.querySelector('.vine-tip').getBoundingClientRect();
-          return {
-            drawn: Number(drawn.toFixed(2)),
-            open: [...document.querySelectorAll('.vine-sprout__art')].filter(
-              (a) => Number(getComputedStyle(a).opacity) > 0.9
-            ).length,
-            gap: Math.abs(tip.bottom - (pt.y * m.d + m.f)),
-            onScreen: tip.top > -40 && tip.bottom < window.innerHeight + 40,
-          };
-        })
+        await page.evaluate(
+          ([trigger, slack]) => {
+            const h = window.innerHeight;
+            const leaves = [...document.querySelectorAll('[data-leaf]:not([hidden])')].map((el) => ({
+              top: el.getBoundingClientRect().top,
+              open: Number(getComputedStyle(el).opacity) > 0.9,
+            }));
+            return {
+              total: leaves.length,
+              open: leaves.filter((l) => l.open).length,
+              // Past the trigger line but still shut.
+              late: leaves.filter((l) => l.top < h * (trigger - slack) && !l.open)
+                .length,
+              // Open while still well below it: opened without being reached.
+              early: leaves.filter((l) => l.top > h * (trigger + slack) && l.open)
+                .length,
+            };
+          },
+          [TRIGGER, SLACK]
+        )
       );
     }
     await page.close();
@@ -854,48 +871,64 @@ console.log('\n\x1b[1mThe vine\x1b[0m');
   for (const { route, steps } of profiles) {
     const label = route.replace(/^\/|\/$/g, '') || 'home';
     check(
-      steps[0].drawn === 0 && steps[0].open === 0,
-      `${label}: arrives ungrown`,
-      `drawn ${steps[0].drawn}, ${steps[0].open} leaves open`
+      steps.every((s) => s.late === 0),
+      `${label}: every leaf you have reached is open`,
+      steps.map((s) => `${s.open}/${s.total} (${s.late} late)`).join(' ')
     );
     check(
-      steps[4].drawn === 1 && steps[4].open === 18,
-      `${label}: finishes complete at the foot of the page`,
-      `drawn ${steps[4].drawn}, ${steps[4].open}/18 leaves`
+      steps.every((s) => s.early === 0),
+      `${label}: no leaf opens before you reach it`,
+      steps.map((s) => `${s.early} early`).join(' ')
     );
     check(
-      steps.every(
-        (s, i) => i === 0 || (s.drawn >= steps[i - 1].drawn && s.open >= steps[i - 1].open)
-      ),
+      steps.every((s, i) => i === 0 || s.open >= steps[i - 1].open),
       `${label}: only ever grows, never retreats`,
-      steps.map((s) => `${s.drawn}/${s.open}`).join(' ')
+      steps.map((s) => s.open).join(' → ')
     );
     check(
-      steps.every((s) => s.onScreen && s.gap < 12),
-      `${label}: growing tip stays on screen and on the stroke's end`,
-      `worst gap ${Math.max(...steps.map((s) => s.gap)).toFixed(1)}px`
+      steps[4].open === steps[4].total && steps[4].total > 0,
+      `${label}: fully leafed at the foot of the page`,
+      `${steps[4].open}/${steps[4].total}`
     );
   }
+}
 
-  // The whole point: no page should feel different from any other.
-  const drawnSpread = [1, 2, 3].map((i) => {
-    const v = profiles.map((pr) => pr.steps[i].drawn);
-    return Math.max(...v) - Math.min(...v);
+/* Every leaf is generated — outline, size, angle, side — so a bug that reset
+   any of that to a constant would leave the vine working and looking stamped,
+   which no other check would catch. */
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  const variety = await page.evaluate(() => {
+    const sprouts = [...document.querySelectorAll('.vine-sprout:not([hidden])')];
+    const uniq = (fn) => new Set(sprouts.map(fn)).size;
+    return {
+      count: sprouts.length,
+      shapes: uniq((el) => el.querySelector('.vine-sprout__blade').getAttribute('d')),
+      sizes: uniq((el) => el.style.getPropertyValue('--s')),
+      angles: uniq((el) => el.style.getPropertyValue('--rot')),
+      sides: uniq((el) => el.style.getPropertyValue('--flip')),
+      timings: uniq((el) => el.style.getPropertyValue('--dur')),
+    };
   });
+  await page.close();
+
+  check(variety.count >= 12, 'the vine carries a full set of leaves', `${variety.count}`);
   check(
-    Math.max(...drawnSpread) <= 0.06,
-    'every page grows the stem at the same rate',
-    `widest disagreement mid-scroll ${Math.max(...drawnSpread).toFixed(2)}`
+    variety.shapes === variety.count,
+    'no two leaves are the same shape',
+    `${variety.shapes} outlines across ${variety.count} leaves`
   );
-
-  const leafSpread = [1, 2, 3].map((i) => {
-    const v = profiles.map((pr) => pr.steps[i].open);
-    return Math.max(...v) - Math.min(...v);
-  });
+  check(variety.sides === 2, 'leaves grow from both strands', `${variety.sides} sides`);
   check(
-    Math.max(...leafSpread) <= 2,
-    'every page opens leaves at the same rate',
-    `widest disagreement ${Math.max(...leafSpread)} leaves`
+    variety.sizes > variety.count * 0.8 && variety.angles > variety.count * 0.8,
+    'size and angle vary leaf to leaf',
+    `${variety.sizes} sizes, ${variety.angles} angles`
+  );
+  check(
+    variety.timings > variety.count * 0.8,
+    'leaves open at their own speeds rather than in lockstep',
+    `${variety.timings} durations`
   );
 }
 
@@ -907,26 +940,30 @@ console.log('\n\x1b[1mThe vine\x1b[0m');
   await page.waitForTimeout(400);
 
   const r = await page.evaluate(() => {
-    const arts = [...document.querySelectorAll('.vine-sprout__art')];
+    const sprouts = [...document.querySelectorAll('.vine-sprout:not([hidden])')];
     return {
-      total: arts.length,
-      open: arts.filter((a) => Number(getComputedStyle(a).opacity) > 0.99).length,
-      drawn:
-        1 -
-        parseFloat(
-          getComputedStyle(document.querySelector('.vine__path--a')).strokeDashoffset
-        ),
-      tipDisplay: getComputedStyle(document.querySelector('.vine-tip')).display,
+      armed: document.documentElement.dataset.vine ?? null,
+      total: sprouts.length,
+      open: sprouts.filter((el) => Number(getComputedStyle(el).opacity) > 0.99).length,
+      grow: sprouts.filter(
+        (el) =>
+          Number(
+            getComputedStyle(el.querySelector('.vine-sprout__art')).getPropertyValue(
+              '--grow'
+            )
+          ) === 1
+      ).length,
     };
   });
+  check(r.armed === null, 'reduced motion: the growth is never armed');
   check(
-    r.open === r.total && r.drawn === 1,
+    r.open === r.total && r.grow === r.total && r.total > 0,
     'reduced motion: the vine is complete and still',
     JSON.stringify(r)
   );
-  check(r.tipDisplay === 'none', 'reduced motion: the travelling tip is hidden, not parked');
   await ctx.close();
 }
+
 
 /* --- No-JS fallback -------------------------------------------------------- */
 
@@ -956,6 +993,26 @@ console.log('\n\x1b[1mNo-JavaScript fallback\x1b[0m');
     'without JS the header stays in flow and the spacer reserves nothing',
     JSON.stringify(stickiness)
   );
+
+  /* The vine's growth is an enhancement, and the thing it enhances has to be
+     whole on its own: stem drawn, every leaf open. A bare stem would be a
+     drawing with its subject missing. */
+  const vine = await page.evaluate(() => {
+    const sprouts = [...document.querySelectorAll('.vine-sprout:not([hidden])')];
+    return {
+      armed: document.documentElement.dataset.vine ?? null,
+      total: sprouts.length,
+      open: sprouts.filter((el) => Number(getComputedStyle(el).opacity) > 0.99).length,
+      dashoffset: getComputedStyle(document.querySelector('.vine__path--a'))
+        .strokeDashoffset,
+    };
+  });
+  check(
+    vine.armed === null && vine.open === vine.total && vine.total > 0,
+    'without JS the vine renders complete rather than bare',
+    JSON.stringify(vine)
+  );
+  check(vine.dashoffset === '0px', 'the stem is never left partly drawn');
 
   await ctx.close();
 }

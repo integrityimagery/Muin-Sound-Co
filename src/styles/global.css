@@ -1063,9 +1063,10 @@ html {
   height: 100%;
 }
 
-/* Base state is the no-JavaScript state: the vine simply rendered, complete
-   and still. The script in Vine.astro drives the growth by writing values
-   directly — see the note there for why it is not CSS scroll-driven. */
+/* The stem never animates. It is the page's spine — always drawn, top to
+   bottom, in every state: with JavaScript, without it, and under reduced
+   motion. Only the leaves grow. See the note in Vine.astro for why the
+   draw-on came out. */
 .vine__path {
   fill: none;
   stroke: var(--vine-stem);
@@ -1073,10 +1074,6 @@ html {
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
   opacity: 0.85;
-  /* Default state is FULLY DRAWN. The scroll animation below is an
-     enhancement layered on top, so a browser without scroll-driven
-     animations still gets the complete illustration. */
-  stroke-dashoffset: 0;
 }
 
 .leaf-node {
@@ -1113,16 +1110,21 @@ html {
   stroke-linecap: round;
 }
 
-/* --- Sprouts and the growing tip ------------------------------------------
+/* --- Leaves ----------------------------------------------------------------
 
    Positioned in percentages sampled from the stem's real cubics, so they sit
    ON the curve. They are HTML rather than SVG children because the stem is
    stretched with preserveAspectRatio="none" — anything with a recognisable
    shape put inside it would be squashed too.
 
-   --grow is registered so it can be transitioned/animated as a number, which
-   lets the sprout keyframes scale the leaf WITHOUT overwriting the static
-   rotation and mirroring already on the same transform. */
+   Every leaf's outline, size, angle, side and timing is generated in
+   Vine.astro, so the shared CSS below can only say what they all do: unfurl
+   when reached, and stay.
+
+   --grow and --tuck are registered so they can be TRANSITIONED, which lets
+   the opening compose with the static rotation, mirroring and scale already
+   on the same transform rather than overwriting them. Unregistered custom
+   properties are strings and would simply jump. */
 
 @property --grow {
   syntax: '<number>';
@@ -1130,9 +1132,15 @@ html {
   initial-value: 1;
 }
 
+@property --tuck {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .vine-sprout {
   position: absolute;
-  width: clamp(1.7rem, 1.1rem + 2.2vw, 2.5rem);
+  width: clamp(1.9rem, 1.2rem + 2.6vw, 2.9rem);
   /* The leaf's base sits at the left-centre of its box; put that on the vine. */
   transform: translateY(-50%);
   pointer-events: none;
@@ -1142,10 +1150,13 @@ html {
   width: 100%;
   height: auto;
   overflow: visible;
+  /* The leaf pivots on its stalk's joint with the stem, which is the only
+     point on it that does not move when a leaf opens. */
   transform-origin: 0% 50%;
-  /* Static shape (which way it faces, how big) composed with --grow, which is
-     the only part the animation touches. */
-  transform: scaleX(var(--flip)) rotate(var(--rot)) scale(calc(var(--s) * var(--grow)));
+  /* Static shape (which way it faces, how big) composed with --grow and
+     --tuck, which are the only parts the opening touches. */
+  transform: scaleX(var(--flip)) rotate(calc(var(--rot) + var(--tuck)))
+    scale(calc(var(--s) * var(--grow)));
 }
 
 .vine-sprout__blade {
@@ -1167,35 +1178,64 @@ html {
   opacity: 0.7;
 }
 
-.vine-tip {
-  position: absolute;
-  width: clamp(0.85rem, 0.6rem + 0.9vw, 1.2rem);
-  transform: translate(-50%, -92%);
-  /* Hidden by default. It only makes sense while it is actually travelling —
-     parked at one end with no motion it reads as a stray mark, so it appears
-     only inside the scroll-driven gate below. */
+/* --- Opening ---------------------------------------------------------------
+
+   Gated on [data-vine="grow"], set before first paint by the inline script in
+   Shell.astro. Everything outside this gate is the finished vine, which is
+   what no-JS and reduced-motion get.
+
+   Each leaf carries its own --dur and --delay from Vine.astro: a run of
+   leaves that opened in lockstep would read as a single wipe rather than as
+   several plants doing the same thing at their own speed. */
+
+/* Transition LONGHANDS, deliberately, here and below. Lightning CSS folds a
+   `transition` shorthand into one declaration, and a custom property named in
+   it is not always carried through intact — the same class of silent drop
+   that took out the old scroll-driven animations. Longhands survive. */
+
+[data-vine='grow'] .vine-sprout,
+[data-vine='grow'] .leaf-node {
   opacity: 0;
-  top: 100%;
-  left: 50%;
-  pointer-events: none;
+  transition-property: opacity;
+  transition-duration: calc(var(--dur, 800ms) * 0.55);
+  transition-timing-function: ease-out;
+  transition-delay: var(--delay, 0ms);
 }
 
-.vine-tip svg {
-  width: 100%;
-  height: auto;
-  overflow: visible;
+[data-vine='grow'] .vine-sprout__art {
+  /* Furled: a sliver, folded back in along the stem. */
+  --grow: 0.06;
+  --tuck: -22deg;
+  transition-property: --grow, --tuck;
+  transition-duration: var(--dur, 800ms);
+  /* A little past full size, then back — a leaf opening under its own turgor
+     rather than a box being scaled up. */
+  transition-timing-function: cubic-bezier(0.22, 1.2, 0.4, 1),
+    cubic-bezier(0.32, 0.9, 0.35, 1);
+  transition-delay: var(--delay, 0ms);
 }
 
-.vine-tip__curl {
-  fill: none;
-  stroke: var(--vine-stem);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
+[data-vine='grow'] .leaf-node svg {
+  transform: scale(0.68) rotate(-16deg);
+  transform-origin: 50% 100%;
+  transition-property: transform;
+  transition-duration: var(--dur, 800ms);
+  transition-timing-function: cubic-bezier(0.22, 1.2, 0.4, 1);
+  transition-delay: var(--delay, 0ms);
 }
 
-.vine-tip__bud {
-  fill: var(--vine-leaf);
+[data-vine='grow'] .vine-sprout.is-open,
+[data-vine='grow'] .leaf-node.is-open {
+  opacity: 1;
+}
+
+[data-vine='grow'] .vine-sprout.is-open .vine-sprout__art {
+  --grow: 1;
+  --tuck: 0deg;
+}
+
+[data-vine='grow'] .leaf-node.is-open svg {
+  transform: none;
 }
 
 /* Spine narrows on tablet, disappears on phones. The leaf survives as an
@@ -1874,23 +1914,22 @@ html {
     scroll-behavior: auto !important;
   }
 
-  .vine__path {
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
+  /* The vine is complete and still: stem drawn, every leaf open. Nothing
+     here should be needed — [data-vine="grow"] is never set under reduced
+     motion, so the gate above simply does not apply — but the vine is the
+     one thing on the site whose whole point is motion, so it is worth
+     stating outright rather than inferring from a script's restraint. */
+  .vine-sprout,
   .leaf-node {
     opacity: 1;
-    transform: none;
   }
 
   .vine-sprout__art {
     --grow: 1;
-    opacity: 1;
+    --tuck: 0deg;
   }
 
-  /* A tip that cannot travel is just a stray mark. */
-  .vine-tip {
-    display: none;
+  .leaf-node svg {
+    transform: none;
   }
 }
