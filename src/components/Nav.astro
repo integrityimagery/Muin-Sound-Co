@@ -74,6 +74,31 @@ const groups = [
                   aria-current={current ? 'page' : inSection ? 'true' : undefined}
                 >
                   {item.label}
+                  {/* Not under the CTA: it is a filled button, and a vine
+                      growing under a button reads as an underlined button. */}
+                  {!item.primary && (current || inSection) && (
+                    <svg
+                      class="nav__vine"
+                      viewBox="0 0 100 8"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      {/* Stretched to whatever the label is wide, which is why
+                          it is a stroke and nothing else: vector-effect keeps
+                          the line an even weight, where a leaf or a curl would
+                          be squashed along with the box. */}
+                      <path
+                        class="nav__vine-stem"
+                        pathLength="1"
+                        d="M 0 5
+                           C 9 1.6, 19 6.8, 29 4
+                           C 39 1.2, 49 6.6, 59 4.2
+                           C 69 1.8, 80 6.4, 90 4.4
+                           C 94 3.6, 97.5 4.4, 100 5"
+                      />
+                    </svg>
+                  )}
                 </a>
 
                 {item.children && (

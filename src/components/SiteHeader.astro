@@ -102,12 +102,35 @@ const {
        finish while the mark inside is still resizing, and the header's height
        depends on that mark. Without it the measurement lands mid-flight and
        the spacer ends up a few pixels wrong — which is a visible content
-       shift, intermittently. */
-    const isAnimating = () =>
-      header.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+       shift, intermittently.
 
-    const syncSpacer = () => {
-      if (isCollapsing() || isAnimating()) return;
+       Only animations that can move the header's BOTTOM EDGE disqualify a
+       measurement. This used to be "any running animation", and it cost a
+       third of a second of content sitting under the header on every
+       navigation: setting data-fixed also used to set background-color, whose
+       declared transition was therefore always running on the line below, so
+       the first measurement was always skipped and the spacer stayed at zero
+       until some later callback happened to catch it. A colour cannot change
+       a height. Naming the properties that can is both the fix and the
+       documentation. */
+    const AFFECTS_HEIGHT = /padding|height|--mark-w|font|inset|margin|border/;
+    /* CSSTransition.transitionProperty and CSSAnimation.animationName are not
+       on the base Animation type, so narrow rather than cast — an animation
+       whose kind we cannot identify counts, which keeps the guard safe by
+       default. */
+    const affectsHeight = (a: Animation) => {
+      if (a instanceof CSSTransition) return AFFECTS_HEIGHT.test(a.transitionProperty);
+      if (a instanceof CSSAnimation) return AFFECTS_HEIGHT.test(a.animationName);
+      return true; // Some other kind of animation: assume it might.
+    };
+
+    const isAnimating = () =>
+      header
+        .getAnimations({ subtree: true })
+        .some((a) => a.playState === 'running' && affectsHeight(a));
+
+    const syncSpacer = ({ force = false } = {}) => {
+      if (!force && (isCollapsing() || isAnimating())) return;
       const h = header.getBoundingClientRect().height;
       if (h > 0 && Math.abs(h - expandedHeight) > 0.5) {
         expandedHeight = h;
@@ -115,10 +138,13 @@ const {
       }
     };
 
-    syncSpacer();
-    new ResizeObserver(syncSpacer).observe(header);
+    /* The first measurement is unconditional. There is nothing to be
+       mid-collapse of before the page has been scrolled, and getting the
+       spacer wrong here is the one case that is guaranteed to be seen. */
+    syncSpacer({ force: true });
+    new ResizeObserver(() => syncSpacer()).observe(header);
     // Web fonts change the nav's height after first paint.
-    document.fonts?.ready.then(syncSpacer);
+    document.fonts?.ready.then(() => syncSpacer());
 
     new IntersectionObserver(
       ([entry]) => {
@@ -126,7 +152,7 @@ const {
         header.dataset.stuck = String(!entry.isIntersecting);
         // Re-measure on the way back up, once the expansion has finished.
         if (entry.isIntersecting) {
-          header.addEventListener('transitionend', syncSpacer, { once: true });
+          header.addEventListener('transitionend', () => syncSpacer(), { once: true });
         }
       },
       { threshold: 0 }

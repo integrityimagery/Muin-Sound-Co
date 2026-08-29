@@ -112,22 +112,34 @@ console.log('\n\x1b[1mDesktop navigation (1280px)\x1b[0m');
     'aria-current marks the actual current page'
   );
 
-  // Current page must be distinguished by more than colour.
+  /* Current page must be distinguished by more than colour. The vine draws
+     itself in on arrival — 300ms of delay then 520ms of growth — so give it
+     time to finish before asking whether it did. */
+  await page.waitForTimeout(1100);
   const distinct = await page.evaluate(() => {
     const el = document.querySelector('.nav__link[aria-current="page"]');
     if (!el) return null;
     const cs = getComputedStyle(el);
-    const marker = getComputedStyle(el, '::before');
+    const vine = el.querySelector('.nav__vine');
+    const stem = vine?.querySelector('.nav__vine-stem');
     return {
       weight: cs.fontWeight,
-      decoration: cs.textDecorationLine,
-      hasGlyph: marker.content !== 'none' && marker.width !== 'auto',
+      hasVine: !!vine && vine.getBoundingClientRect().width > 20,
+      // It must actually finish drawing itself, not sit half-grown.
+      drawn: stem ? 1 - parseFloat(getComputedStyle(stem).strokeDashoffset || '0') : 0,
+      // The leaf glyph is gone; nothing should have quietly put it back.
+      leafGlyph: getComputedStyle(el, '::before').content,
     };
   });
   check(
-    distinct?.weight === '700' && distinct.decoration.includes('underline') && distinct.hasGlyph,
-    'current page uses weight + underline + leaf glyph, not colour alone',
+    distinct?.weight === '700' && distinct.hasVine && distinct.drawn > 0.99,
+    'current page is marked by weight + a fully grown vine, not colour alone',
     JSON.stringify(distinct)
+  );
+  check(
+    distinct?.leafGlyph === 'none',
+    'the old leaf glyph is gone from the nav marker',
+    JSON.stringify(distinct?.leafGlyph)
   );
 
   // Story pages keep the nav reachable rather than hiding it.
@@ -1004,7 +1016,10 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
       page.waitForURL('**/about/'),
       page.locator('.nav__list a[href$="/about/"]').first().click(),
     ]);
-    await page.waitForTimeout(700);
+    // The whole sequence is ~680ms, plus the vine under the nav item behind
+    // it. Wait past all of it: the point of the check below is that nothing
+    // is STILL running, which a short wait would fake a failure for.
+    await page.waitForTimeout(1600);
     const result = {
       swap: await page.evaluate(() => sessionStorage.getItem('swap')),
       after: await page.evaluate(() =>
@@ -1058,6 +1073,66 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
       `${r.swap}`
     );
     check(r.interactive, 'reduced motion: the destination still renders');
+  }
+
+  /* THE regression this whole section exists for.
+
+     The header is `position: fixed`, and its height is reserved by a spacer
+     that a script sizes from a real measurement. If that measurement is
+     skipped, the spacer stays at zero and the content sits UNDER the header
+     until some later callback happens to catch it — text over the logo, on
+     arrival, on every navigation.
+
+     It was skipped, for 332ms on every single page load: setting data-fixed
+     also set background-color, whose declared transition was therefore running
+     on the very next line, and the "is anything animating?" guard treated a
+     colour transition as a reason not to measure a height. Sampling every
+     frame from the new document's first is the only way to see it — by the
+     time any ordinary assertion runs, it has fixed itself. */
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(() => {
+      window.__overlap = [];
+      const t0 = performance.now();
+      const tick = () => {
+        const h = document.querySelector('[data-header]');
+        const m = document.querySelector('main');
+        if (h && m) {
+          const hr = h.getBoundingClientRect();
+          window.__overlap.push({
+            t: Math.round(performance.now() - t0),
+            over: Math.round(hr.bottom - m.getBoundingClientRect().top),
+          });
+        }
+        if (window.__overlap.length < 100) requestAnimationFrame(tick);
+      };
+      tick();
+    });
+    const page = await ctx.newPage();
+
+    for (const route of ['/listen/', '/packages/', '/about/']) {
+      await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+      // Scrolled, so the header is COLLAPSED when the link is clicked — the
+      // case where the spacer has the most catching up to do.
+      await page.evaluate(() => window.scrollTo(0, 900));
+      await page.waitForTimeout(400);
+      await Promise.all([
+        page.waitForURL('**' + route),
+        page.locator(`.nav__list a[href$="${route}"]`).first().click(),
+      ]);
+      await page.waitForTimeout(1400);
+
+      const frames = await page.evaluate(() => window.__overlap || []);
+      const bad = frames.filter((f) => f.over > 1);
+      check(
+        frames.length > 10 && bad.length === 0,
+        `${route}: content never renders underneath the fixed header`,
+        bad.length
+          ? `${bad.length} frames, worst ${Math.max(...bad.map((f) => f.over))}px, ${bad[0].t}–${bad.at(-1).t}ms`
+          : `${frames.length} frames clean`
+      );
+    }
+    await ctx.close();
   }
 
   /* `view-transition-name` forces a stacking context, and the off-canvas menu

@@ -552,6 +552,16 @@ figure {
 }
 
 .site-header {
+  /* Painted unconditionally, not only under [data-fixed='on'].
+
+     It used to be set by that attribute, which the script adds on load — so
+     `background-color` went from transparent to --bg and the declared
+     transition below animated it, on every single page load. That cost 332ms
+     of the content sitting underneath the fixed header on arrival: see the
+     note on isAnimating() in SiteHeader.astro, which was watching for exactly
+     that transition and refusing to measure while it ran. Static and in flow,
+     with no script, this is the same colour as the page and changes nothing. */
+  background-color: var(--bg);
   /* The lockup at three quarters of its former width. It was sized to be the
      page's opening image, stacked above the nav; seated between two columns
      of links it is a mark rather than a hero, and the old size crowded them. */
@@ -581,7 +591,6 @@ figure {
   inset-block-start: 0;
   inset-inline: 0;
   z-index: 30;
-  background-color: var(--bg);
 }
 
 .site-header {
@@ -840,26 +849,56 @@ html {
   text-underline-offset: 0.25em;
 }
 
-/* Current page is marked with a leaf glyph AND a weight change AND a rule —
-   never colour alone. */
-.nav__link[aria-current='page'] {
+/* Where you are is marked by a weight change AND a vine drawn under the
+   label — never colour alone. The vine replaces both the leaf glyph that used
+   to sit before the label and the flat rule that marked the current section,
+   so there is now one marker instead of two. */
+.nav__link[aria-current='page'],
+.nav__link[aria-current='true'] {
   font-weight: 700;
-  text-decoration: underline;
-  text-decoration-thickness: 0.1em;
-  text-underline-offset: 0.25em;
+  /* No text-decoration: the vine IS the underline, and both together read as
+     a mistake. */
+  position: relative;
 }
 
-.nav__link[aria-current='page']::before {
-  content: '';
-  display: inline-block;
-  width: 0.7em;
-  height: 0.7em;
-  margin-inline-end: 0.4em;
-  background-color: var(--vine-leaf);
-  /* Leaf silhouette: pointed at both ends, same shape as the logo's foliage. */
-  clip-path: path('M 8 0 C 12 4, 16 6, 16 8 C 16 10, 12 12, 8 16 C 4 12, 0 10, 0 8 C 0 6, 4 4, 8 0 Z');
-  transform: rotate(-20deg);
-  vertical-align: -0.05em;
+.nav__vine {
+  position: absolute;
+  /* Absolute, so it cannot alter the link's box. A block-level marker here
+     previously made story pages' header 3px taller than everywhere else,
+     which the header-parity test caught. */
+  inset-inline: -0.15em;
+  inset-block-start: 100%;
+  width: calc(100% + 0.3em);
+  height: 0.5em;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nav__vine-stem {
+  fill: none;
+  stroke: var(--vine-stem);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  /* Default state is DRAWN: without the animation below — no JavaScript is
+     involved either way, but under reduced motion the duration is flattened —
+     the marker is simply present. */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  /* Grows on arrival, which is the same moment the incoming page fades in.
+     The delay carries it past the page transition rather than starting it
+     underneath one. */
+  animation-name: nav-vine-grow;
+  animation-duration: 520ms;
+  animation-delay: 300ms;
+  animation-timing-function: cubic-bezier(0.22, 0.75, 0.28, 1);
+  animation-fill-mode: both;
+}
+
+@keyframes nav-vine-grow {
+  from {
+    stroke-dashoffset: 1;
+  }
 }
 
 .nav__cta {
@@ -943,39 +982,6 @@ html {
   text-decoration: underline;
   text-decoration-thickness: 0.1em;
   text-underline-offset: 0.2em;
-}
-
-.nav__sublink[aria-current='page']::before {
-  content: '';
-  display: inline-block;
-  width: 0.65em;
-  height: 0.65em;
-  margin-inline-end: 0.4em;
-  background-color: var(--vine-leaf);
-  clip-path: path('M 8 0 C 12 4, 16 6, 16 8 C 16 10, 12 12, 8 16 C 4 12, 0 10, 0 8 C 0 6, 4 4, 8 0 Z');
-  transform: rotate(-20deg);
-  vertical-align: -0.05em;
-}
-
-/* The parent of the page you are on: marked as the current section, again
-   with a marker rather than colour. Distinct from aria-current="page". */
-.nav__link[aria-current='true'] {
-  font-weight: 700;
-  position: relative;
-}
-
-/* Absolutely positioned, so the marker cannot change the nav's height. As a
-   block-level ::after it added 4px to whichever item was the current section,
-   which made story pages' collapsed header 3px taller than everywhere else —
-   a difference the header-parity test caught. */
-.nav__link[aria-current='true']::after {
-  content: '';
-  position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0.15em;
-  height: 2px;
-  background-color: var(--vine-leaf);
-  border-radius: 1px;
 }
 
 @media (min-width: 900px) {
@@ -1818,34 +1824,99 @@ html {
    type printed through another's. It looked like a slideshow. So the two
    never overlap — the old one is gone before the new one starts. */
 ::view-transition-group(site-header) {
-  animation-duration: 260ms;
+  /* Long enough to be a movement rather than a jump: click a link while the
+     header is collapsed and it grows back to its full height as the page
+     changes, instead of the new page simply arriving with a tall header. */
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.22, 0.72, 0.24, 1);
+  overflow: clip;
 }
 
-/* The outgoing page only fades. It is a static bitmap by this point, and
-   moving a bitmap that the eye still reads as text is what makes a transition
-   feel cheap. */
+/* Do NOT let the growing box stretch the snapshots to fit it. By default both
+   are scaled to the group's interpolated size, so a 63px collapsed header
+   smears vertically all the way to 251px and the lettering distorts for the
+   whole journey.
+
+   `cover` on the incoming header is the trick: the box is already the full
+   width, so covering it never scales the image — it only crops it vertically.
+   Anchored to the top, a box growing 63px -> 251px therefore REVEALS the
+   expanded header downward at its true size, which is what actually reads as
+   the header opening back out.
+
+   Neither one cross-fades, and that is the whole point. The browser's default
+   dissolves both — in plus-lighter, no less — and because the collapsed
+   header's nav sits at a different height from the expanded one's, that put
+   two navigation bars on screen at once, each at half brightness, for the
+   length of the fade. It read as a glitch because it looks like one.
+
+   The incoming header is opaque from the first frame instead. It is painted
+   above the outgoing one and, cropped to cover the box, fills it completely —
+   so the outgoing header is never visible at all, and there is nothing to
+   ghost. When the header is NOT collapsed the two boxes are the same size and
+   the two images are identical, so the same rule is invisible. */
+::view-transition-old(site-header),
+::view-transition-new(site-header) {
+  mix-blend-mode: normal;
+  animation-name: none;
+  object-position: top center;
+}
+
+::view-transition-old(site-header) {
+  object-fit: none;
+}
+
+::view-transition-new(site-header) {
+  object-fit: cover;
+}
+
+/* The outgoing page blows away.
+
+   A plain opacity fade on a page-sized bitmap is the cheapest-looking
+   transition there is. This masks the snapshot with fractal noise and scales
+   the noise up as the page fades, so different parts of it thin out at
+   different moments — the page comes apart into grain rather than dimming
+   evenly — with a small drift to the right to give the dust somewhere to go.
+
+   The noise is generated by the SVG filter in the mask itself, so there is no
+   image to ship and nothing to keep in step with the palettes. */
 ::view-transition-old(root) {
-  animation-name: page-leave;
-  animation-duration: 150ms;
-  animation-timing-function: ease-in;
+  animation-name: page-dust;
+  animation-duration: 340ms;
+  animation-timing-function: cubic-bezier(0.35, 0, 0.75, 0.25);
   animation-fill-mode: both;
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><filter id="d" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" seed="11"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope="2.6" intercept="-0.35"/></feComponentTransfer></filter><rect width="500" height="500" filter="url(%23d)"/></svg>');
+  mask-mode: alpha;
+  mask-repeat: repeat;
 }
 
 ::view-transition-new(root) {
   animation-name: page-enter;
-  animation-duration: 420ms;
+  animation-duration: 340ms;
   /* Decelerating, with the overshoot deliberately left out — a page that
      bounces is a page that is pleased with itself. */
   animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
   /* Exactly the outgoing page's duration: it starts the frame the old one
      finishes, so there is no double exposure and no blank pause either. */
-  animation-delay: 150ms;
+  animation-delay: 340ms;
   animation-fill-mode: both;
 }
 
-@keyframes page-leave {
+@keyframes page-dust {
+  from {
+    opacity: 1;
+    mask-size: 105% 105%;
+    mask-position: 0 0;
+    transform: translateX(0);
+  }
+
   to {
     opacity: 0;
+    /* Scaling the noise is what does the dissolving: every pixel's mask alpha
+       is sampling a different part of the pattern by the end, so the page
+       breaks up rather than dimming. */
+    mask-size: 300% 300%;
+    mask-position: 26% -14%;
+    transform: translateX(16px);
   }
 }
 
@@ -1875,7 +1946,7 @@ html {
 @supports not (view-transition-name: none) {
   main {
     animation-name: page-enter;
-    animation-duration: 420ms;
+    animation-duration: 340ms;
     animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
     /* `both`, so the 0% keyframe applies before the animation starts and the
        page does not flash its final position first. */
