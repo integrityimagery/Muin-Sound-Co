@@ -79,23 +79,30 @@ const groups = [
                   {!item.primary && (current || inSection) && (
                     <svg
                       class="nav__vine"
-                      viewBox="0 0 100 8"
-                      preserveAspectRatio="none"
+                      viewBox="0 0 64 16"
                       aria-hidden="true"
                       focusable="false"
                     >
-                      {/* Stretched to whatever the label is wide, which is why
-                          it is a stroke and nothing else: vector-effect keeps
-                          the line an even weight, where a leaf or a curl would
-                          be squashed along with the box. */}
+                      {/* Fixed size and centred rather than stretched to the
+                          label. Stretching is what forced the previous version
+                          to be a bare line: labels here run from LISTEN to FOR
+                          PHOTOGRAPHERS, a 3x range, and leaves squashed by 3x
+                          are not leaves. */}
                       <path
                         class="nav__vine-stem"
-                        pathLength="1"
-                        d="M 0 5
-                           C 9 1.6, 19 6.8, 29 4
-                           C 39 1.2, 49 6.6, 59 4.2
-                           C 69 1.8, 80 6.4, 90 4.4
-                           C 94 3.6, 97.5 4.4, 100 5"
+                        d="M 1 10 C 10 5.5, 18 13, 28 9.5 C 38 6, 47 13, 63 9"
+                      />
+                      <path
+                        class="nav__vine-leaf"
+                        d="M 15.5 8.6 C 12.18 8.71, 10.29 5.31, 9.5 2.2 C 12.55 3.19, 15.82 5.29, 15.5 8.6 Z"
+                      />
+                      <path
+                        class="nav__vine-leaf"
+                        d="M 30 9.2 C 28.7 6.3, 31.03 3.41, 33.5 1.6 C 33.73 4.65, 33.05 8.3, 30 9.2 Z"
+                      />
+                      <path
+                        class="nav__vine-leaf"
+                        d="M 45.5 8.7 C 45.61 5.29, 49.24 3.38, 52.5 2.6 C 51.28 5.72, 48.89 9.06, 45.5 8.7 Z"
                       />
                     </svg>
                   )}

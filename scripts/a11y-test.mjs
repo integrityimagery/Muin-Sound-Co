@@ -112,28 +112,24 @@ console.log('\n\x1b[1mDesktop navigation (1280px)\x1b[0m');
     'aria-current marks the actual current page'
   );
 
-  /* Current page must be distinguished by more than colour. The vine draws
-     itself in on arrival — 300ms of delay then 520ms of growth — so give it
-     time to finish before asking whether it did. */
-  await page.waitForTimeout(1100);
+  // Current page must be distinguished by more than colour.
   const distinct = await page.evaluate(() => {
     const el = document.querySelector('.nav__link[aria-current="page"]');
     if (!el) return null;
     const cs = getComputedStyle(el);
     const vine = el.querySelector('.nav__vine');
-    const stem = vine?.querySelector('.nav__vine-stem');
     return {
       weight: cs.fontWeight,
       hasVine: !!vine && vine.getBoundingClientRect().width > 20,
-      // It must actually finish drawing itself, not sit half-grown.
-      drawn: stem ? 1 - parseFloat(getComputedStyle(stem).strokeDashoffset || '0') : 0,
-      // The leaf glyph is gone; nothing should have quietly put it back.
+      // A vine, not a rule: the leaves are the difference.
+      leaves: vine ? vine.querySelectorAll('.nav__vine-leaf').length : 0,
+      // The old leaf glyph is gone; nothing should quietly put it back.
       leafGlyph: getComputedStyle(el, '::before').content,
     };
   });
   check(
-    distinct?.weight === '700' && distinct.hasVine && distinct.drawn > 0.99,
-    'current page is marked by weight + a fully grown vine, not colour alone',
+    distinct?.weight === '700' && distinct.hasVine && distinct.leaves >= 3,
+    'current page is marked by weight + a leafy vine, not colour alone',
     JSON.stringify(distinct)
   );
   check(
@@ -1009,23 +1005,15 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
     await ctx.addInitScript(recorder);
     const page = await ctx.newPage();
     await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-    const before = await page.evaluate(() =>
-      JSON.stringify(document.querySelector('[data-header]').getBoundingClientRect())
-    );
     await Promise.all([
       page.waitForURL('**/about/'),
       page.locator('.nav__list a[href$="/about/"]').first().click(),
     ]);
-    // The whole sequence is ~680ms, plus the vine under the nav item behind
-    // it. Wait past all of it: the point of the check below is that nothing
-    // is STILL running, which a short wait would fake a failure for.
-    await page.waitForTimeout(1600);
+    // The whole cross-fade is 300ms. Wait past it: the point of the check
+    // below is that nothing is STILL running, which a short wait would fake.
+    await page.waitForTimeout(800);
     const result = {
       swap: await page.evaluate(() => sessionStorage.getItem('swap')),
-      after: await page.evaluate(() =>
-        JSON.stringify(document.querySelector('[data-header]').getBoundingClientRect())
-      ),
-      before,
       // Nothing may be left running, or the page is stuck under a snapshot.
       stuck: await page.evaluate(
         () =>
@@ -1046,11 +1034,6 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
     await ctx.close();
 
     check(r.swap === 'transition', 'a real click starts a view transition', `${r.swap}`);
-    check(
-      r.before === r.after,
-      'the header is in exactly the same place either side of it',
-      `${r.before} vs ${r.after}`
-    );
     check(r.stuck === 0, 'nothing is left running once it finishes', `${r.stuck} animations`);
     check(r.interactive, 'the destination is rendered and not hidden under a snapshot');
   }
@@ -1135,10 +1118,11 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
     await ctx.close();
   }
 
-  /* `view-transition-name` forces a stacking context, and the off-canvas menu
-     is a `position: fixed` child of the header. If naming the header ever
-     started giving it a containing block too, the full-screen menu would
-     silently shrink to the header's box. */
+  /* The off-canvas menu is a `position: fixed` child of the header. Anything
+     that gives the header a containing block — a transform, or a property
+     that implies one — silently shrinks the full-screen menu to the header's
+     box, and it is not obvious from reading the CSS which properties those
+     are. Cheaper to measure it. */
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
     await page.goto(BASE + '/', { waitUntil: 'networkidle' });
@@ -1152,7 +1136,7 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
     await page.close();
     check(
       panel.x === 0 && panel.y === 0 && panel.w === panel.vw && panel.h === panel.vh,
-      'naming the header does not trap the off-canvas menu inside it',
+      'the off-canvas menu is not trapped inside the header',
       JSON.stringify(panel)
     );
   }

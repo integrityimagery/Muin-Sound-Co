@@ -343,7 +343,10 @@ console.log('\n\x1b[1mStylesheet discipline\x1b[0m');
    folded an `animation` shorthand together with `animation-timeline` into a
    declaration that was invalid, and discarded it without a warning. There is
    no runtime error for this; the effect simply does not happen in production
-   and works fine locally. So the built stylesheet is checked, not the source. */
+   and works fine locally. So the built stylesheet is checked, not the source.
+
+   Four declarations is the whole feature now. It used to be considerably more
+   than that, and the extra was what made the pages feel slow. */
 
 console.log('\n\x1b[1mPage transitions\x1b[0m');
 {
@@ -354,24 +357,11 @@ console.log('\n\x1b[1mPage transitions\x1b[0m');
 
   const required = [
     ['@view-transition', /@view-transition\s*\{\s*navigation:\s*auto\s*\}/],
-    ['the header held still', /view-transition-name:\s*site-header/],
-    ['the outgoing page', /::view-transition-old\(root\)\s*\{[^}]*page-dust/],
-    ['the incoming page', /::view-transition-new\(root\)\s*\{[^}]*page-enter/],
-    ['both keyframes', /@keyframes page-enter\s*\{/],
-    // The dust is a mask made of an inline SVG filter. Minifiers re-quote and
-    // re-escape data URIs, and a data URI that comes out malformed is not an
-    // error — the mask just silently masks nothing and the page plain-fades.
-    ['the dust mask', /::view-transition-old\(root\)\s*\{[^}]*feTurbulence/],
-    ['the dust dissolve', /@keyframes page-dust\s*\{[^@]*mask-size:\s*300%/],
-    // Without object-fit the growing header box stretches its snapshot.
-    ['the header reveal', /::view-transition-new\(site-header\)\s*\{[^}]*object-fit:\s*cover/],
+    ['the outgoing page', /::view-transition-old\(root\)\s*\{[^}]*animation-duration/],
+    ['the incoming page', /::view-transition-new\(root\)\s*\{[^}]*animation-delay/],
     [
       'the reduced-motion opt-out',
       /prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?@view-transition\s*\{\s*navigation:\s*none\s*\}/,
-    ],
-    [
-      'the fallback for browsers without view transitions',
-      /@supports not \(view-transition-name:\s*none\)\s*\{\s*main\s*\{[^}]*page-enter/,
     ],
   ];
 
