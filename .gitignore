@@ -21,3 +21,6 @@ pnpm-debug.log*
 # editors
 .vscode/
 .idea/
+
+# Scratch scripts used while debugging in the browser.
+*.tmp.mjs
