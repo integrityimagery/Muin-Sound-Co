@@ -15,21 +15,21 @@
     <link rel="icon" type="image/png" href="favicon-32.png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
-    <!-- Fonts: matched to the logo's hand-drawn, warm-folk wordmark (Fraunces)
-         and a comfortable body face (Alegreya Sans). display=swap so text
-         never waits on the font to paint. -->
+    <!-- Fonts: matched to the wordmark's hand-drawn, warm-folk lettering
+         (Fraunces, at a light weight for the statement) and a comfortable
+         body face (Alegreya Sans). Only the weights actually used are
+         requested. display=swap so text never waits on the font to paint. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Alegreya+Sans:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Alegreya+Sans:wght@400&display=swap"
     />
 
-    <!-- The doors' CLOSED state and the logo are what paints first; preload
-         them at high priority. The OPEN state is only needed on interaction,
-         so it is preloaded too (per the brief) but at low priority — it
-         should not compete with anything visible on first paint. -->
-    <link rel="preload" as="image" href="assets/images/cottagecore-2a-lockup.webp" type="image/webp" fetchpriority="high" />
+    <!-- The doors' CLOSED state is what paints first; preload it at high
+         priority. The OPEN state is only needed on interaction, so it is
+         preloaded too but at low priority — it should not compete with
+         anything visible on first paint. -->
     <link rel="preload" as="image" href="assets/images/weddings-closed.webp" type="image/webp" fetchpriority="high" />
     <link rel="preload" as="image" href="assets/images/parties-closed.webp" type="image/webp" fetchpriority="high" />
     <link rel="preload" as="image" href="assets/images/gaming-closed.webp" type="image/webp" fetchpriority="high" />
@@ -105,17 +105,6 @@
     </div>
 
     <main class="page">
-      <picture class="brand">
-        <source srcset="assets/images/cottagecore-2a-lockup.webp" type="image/webp" />
-        <img
-          src="assets/images/cottagecore-2a-lockup.png"
-          alt="Muin Sound Co."
-          width="640"
-          height="491"
-          fetchpriority="high"
-        />
-      </picture>
-
       <h1 class="statement">
         Muin Sound Co. writes and produces original songs and soundtracks for your
         wedding, themed party or tabletop gaming campaign.
@@ -209,12 +198,19 @@
     </main>
 
     <footer class="site-footer">
-      <p class="site-footer__brand">Muin Sound Co.</p>
-      <!-- PLACEHOLDER contact address. -->
-      <p><a href="mailto:hello@example.com">hello@example.com</a></p>
-      <p class="site-footer__fine">
-        &copy; 2026 Muin Sound Co. &middot; <a href="about">About</a>
-      </p>
+      <!-- The wordmark is the only content here. It carries the same
+           non-empty alt the lockup did up top — it is now the sole visible
+           text identifying the business anywhere on the page. -->
+      <picture>
+        <source srcset="assets/images/cottagecore-2a-wordmark.webp" type="image/webp" />
+        <img
+          src="assets/images/cottagecore-2a-wordmark.png"
+          alt="Muin Sound Co."
+          width="440"
+          height="183"
+          loading="lazy"
+        />
+      </picture>
     </footer>
   </body>
 </html>

@@ -63,9 +63,36 @@ distinct from hover, which shows no ring at all, only the artwork.
 `prefers-reduced-motion: reduce` drops the transition to `0s`: the door still
 changes state on hover/focus, it simply doesn't cross-fade to get there.
 
+## The statement
+
+`max-width: 63ch` on the `<h1>` is not a guess — it's the smallest width
+(with a margin for font-metric differences) that breaks the actual copy to
+two lines rather than three, measured in a real browser by counting the
+statement's rendered `getClientRects()`. It holds two lines from 600px
+viewports up through desktop. `max-width` only ever caps a line, never forces
+one, so on a phone the same rule just wraps within whatever space is actually
+there (three lines at 390px and below) — there's no readable font size that
+fits this sentence on two lines at 360px, so that's the expected, accepted
+outcome rather than something to keep chasing.
+
+Weight is 400 (Fraunces has no true "thin" instance in the static weights
+Google Fonts serves at the `opsz` range used here — 400 is its lightest).
+The Google Fonts request itself was trimmed to exactly the weights in use:
+Fraunces 600 and Alegreya Sans 700 were being requested for the old footer
+text, which no longer exists, so both were dropped.
+
+## The footer
+
+Wordmark only, no text and no links — `assets/images/cottagecore-2a-wordmark`
+(webp + png via `<picture>`, same pattern as the doors). It carries a
+non-empty `alt="Muin Sound Co."`: with the top-of-page lockup gone, this is
+now the *only* place the business name appears anywhere in the page's visible
+or accessible content (the `<title>`, meta description, and JSON-LD still
+carry it, but none of those are page content a reader encounters).
+
 ## Links
 
-Door and footer links are relative with no leading slash (`href="weddings"`,
+The three door links are relative with no leading slash (`href="weddings"`,
 not `href="/weddings"`). There's no `CNAME` in this repo, so it's served from
 a GitHub Pages *project* site at `/Muin-Sound-Co/`, not the domain root — an
 absolute `/weddings` would resolve to the wrong place and 404 even once that
@@ -73,10 +100,13 @@ page exists. Relative paths resolve correctly at any depth, including if a
 custom domain is added later, so there's no reason to prefer the absolute
 form here.
 
-**`weddings`, `parties`, `gaming`, and `about` are all intentionally
-unbuilt.** They 404 today. That's correct for this pass — the brief is
-explicit that stub pages should not be created ahead of the branch pages
-they belong to.
+**`weddings`, `parties`, and `gaming` are all intentionally unbuilt.** They
+404 today. That's correct for this pass — the brief is explicit that stub
+pages should not be created ahead of the branch pages they belong to.
+
+There is currently no link to `/about` anywhere on the page — the footer that
+used to carry it was replaced with the wordmark, which isn't a link (there is
+nowhere else on the site for it to usefully point to yet).
 
 ## Deploying
 
@@ -100,10 +130,11 @@ structured for that even though it isn't needed yet.
 
 ## Before launch
 
-- [ ] Real contact email in the footer (currently `hello@example.com`,
-      marked `PLACEHOLDER` in `index.html`)
 - [ ] Real domain — `muinsound.co` is a placeholder used in the canonical
       link, Open Graph tags, and JSON-LD. Update all of them together.
 - [ ] `sameAs` social profile URLs in the JSON-LD block, once real ones exist
       (deliberately omitted rather than filled with invented links)
-- [ ] Build `weddings`, `parties`, `gaming`, and `about` — each currently 404s
+- [ ] Build `weddings`, `parties`, and `gaming` — each currently 404s
+- [ ] Decide where a contact address and an `/about` link belong now that
+      the footer is wordmark-only — neither exists anywhere on the page at
+      the moment

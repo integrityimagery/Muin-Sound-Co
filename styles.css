@@ -1,10 +1,10 @@
 /* ==========================================================================
    Muin Sound Co. — homepage stylesheet
 
-   Plain CSS, no build step. Four things live on this page: the logo, the
-   statement, the three doors, and a minimal footer. The spacing between them
-   is most of the design, so the custom properties below exist to keep that
-   rhythm centralised rather than repeated at each rule.
+   Plain CSS, no build step. Three things live on this page: the statement,
+   the three doors, and a footer carrying the wordmark. The spacing between
+   them is most of the design, so the custom properties below exist to keep
+   that rhythm centralised rather than repeated at each rule.
 
    Palette: Hearth & Dried Herb only, for now. Every colour is a custom
    property so a second palette (for a themed branch page later) is a matter
@@ -35,7 +35,6 @@
      One set of gaps, referenced everywhere, so the page's spacing changes in
      one place rather than three. */
   --gutter: clamp(1.25rem, 4vw, 3rem);
-  --gap-logo-statement: clamp(1.25rem, 1rem + 1vw, 1.75rem);
   --gap-statement-doors: clamp(1.75rem, 1.25rem + 1.5vw, 2.5rem);
   --gap-doors-footer: clamp(1.75rem, 1.25rem + 1.5vw, 2.5rem);
   --door-w: 300px;
@@ -98,23 +97,23 @@ a:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100dvh;
   padding: clamp(1.5rem, 3vh + 0.75rem, 3rem) var(--gutter) 0;
   text-align: center;
 }
 
-.brand img {
-  width: clamp(13rem, 10rem + 10vw, 17rem);
-  height: auto;
-}
-
 .statement {
-  margin: var(--gap-logo-statement) 0 0;
-  max-width: 38ch;
+  margin: 0;
+  /* Wide enough that the sentence breaks to two lines rather than three at
+     ordinary desktop widths — measured against the actual copy, not guessed;
+     see the note in the README. `max-width` only ever CAPS the line, so on a
+     narrower viewport it simply wraps to more lines within whatever space is
+     actually available, which is unavoidable at any readable size once the
+     container itself is narrower than the line. */
+  max-width: 63ch;
   font-family: var(--font-display);
-  font-weight: 500;
-  font-size: clamp(1.375rem, 1.1rem + 1.1vw, 1.75rem);
-  line-height: 1.5;
+  font-weight: 400;
+  font-size: clamp(1.0625rem, 0.95rem + 0.55vw, 1.25rem);
+  line-height: 1.55;
   color: var(--heading);
 }
 
@@ -184,26 +183,14 @@ a:focus-visible {
 
 .site-footer {
   margin-top: var(--gap-doors-footer);
-  padding: clamp(1.25rem, 1.5vh + 0.75rem, 1.75rem) var(--gutter);
-  color: var(--muted);
-  font-size: 0.9375rem;
+  padding: clamp(1.5rem, 2.5vh + 0.75rem, 2.25rem) var(--gutter);
   text-align: center;
 }
 
-.site-footer p {
-  margin: 0.25rem 0;
-}
-
-.site-footer__brand {
-  font-family: var(--font-display);
-  font-weight: 600;
-  color: var(--heading);
-  font-size: 1.0625rem;
-  letter-spacing: 0.02em;
-}
-
-.site-footer__fine {
-  color: var(--muted);
+.site-footer img {
+  width: clamp(9rem, 6rem + 8vw, 12rem);
+  height: auto;
+  margin-inline: auto;
 }
 
 /* --------------------------------------------------------------------------
