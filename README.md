@@ -66,6 +66,19 @@ distinct from hover, which shows no ring at all, only the artwork.
 `prefers-reduced-motion: reduce` drops the transition to `0s`: the door still
 changes state on hover/focus, it simply doesn't cross-fade to get there.
 
+**Alt text**: each `<img>` carries a real, descriptive `alt` (e.g. *"An
+arched double door twined with a rose vine, a WEDDINGS sign above it,
+closed"*) rather than an empty one — this is for image search and anyone
+inspecting the image directly, and it's safe to add precisely because the
+enclosing `<a>` already has `aria-label="Weddings"`. Per the accessible-name
+computation, `aria-label` on an ancestor link fully overrides any descendant
+image's `alt` when the browser works out what to announce — so the link
+still reads as a clean "Weddings, link" to a screen reader; verified against
+the accessibility tree, not assumed. The six alt strings are all distinct
+(closed and open states describe what's actually different between them)
+and none of them just repeats "Weddings"/"Parties"/"Gaming" — axe-core's
+`image-redundant-alt` rule checks exactly that, and passes.
+
 ## The statement
 
 `max-width: 63ch` on the `<h1>` is not a guess — it's the smallest width
@@ -175,25 +188,31 @@ how the page was built. This was verification, not remediation.
 
 ## SEO & structured data
 
-**Structured data** is one `@graph` (`Organization`, `WebSite`, `WebPage`,
-plus three `SiteNavigationElement` entries for the doors) rather than
-several separate `<script>` blocks, so entities reference each other by
-`@id` instead of repeating the same facts three times — the pattern Google's
-own examples and most SEO tooling use. Verified by parsing it and confirming
-every `@id` reference actually resolves to a defined entity in the graph
-(nothing here is checked by a browser at render time, so a typo would
-otherwise ship silently).
+**Structured data** is one `@graph` — `Organization`, `WebSite`, `WebPage`,
+three `SiteNavigationElement` entries for the doors, and three `Service`
+entities, one per door — rather than several separate `<script>` blocks, so
+entities reference each other by `@id` instead of repeating the same facts
+three times. Verified by parsing it and confirming every `@id` reference
+actually resolves to a defined entity in the graph (nothing here is checked
+by a browser at render time, so a typo would otherwise ship silently).
 
-**Deliberately not included**: `Service`, `Offer`, or `FAQPage` schema for
-Weddings/Parties/Gaming. This page names those three categories but
-describes no pricing, scope, or process for any of them — structured data
-that doesn't match visible page content is exactly what Google's structured
-data guidelines warn against, and it's the same reason the build brief that
-produced this page held off on this schema in the first place. `knowsAbout`
-on the `Organization` entity is the honest middle ground: it states subject
-matter the visible statement already says, without claiming a bookable
-service that isn't written yet. The real `Service` markup belongs on each
-branch page once it exists, describing what that page actually offers.
+**The three `Service` entities are built only from words already on this
+page.** Each `name`/`description` is the relevant clause of the h1 statement
+— e.g. Weddings' description is "An original song, written and produced for
+your wedding, from Muin Sound Co.", which is a direct extract, not a new
+claim. `provider` links each Service back to the `Organization`, and
+`WebPage.mainEntity` points at all three, which is literally true: the doors
+are the main things this page routes to.
+
+**Still deliberately not included**: `Offer.price`, `AggregateRating`, or
+`FAQPage`. None of that exists on the page — no pricing, no reviews, no
+FAQ copy — and structured data claiming any of it would not match visible
+page content, which is exactly what Google's structured data guidelines
+warn against. `knowsAbout` on the `Organization` entity is the same
+discipline applied to subject matter rather than commerce: it states what
+the visible statement already says, nothing more. The fuller `Service`
+markup — actual scope, pricing, process — belongs on each branch page once
+it exists and can back it honestly.
 
 **`robots.txt`** is fully open — `Allow: /` for every user-agent, including
 AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, and so on).
@@ -239,8 +258,10 @@ structured for that even though it isn't needed yet.
       JSON-LD block, once real ones exist (deliberately omitted rather than
       filled with invented links)
 - [ ] Build `weddings`, `parties`, and `gaming` — each currently 404s. As
-      each ships: add it to `sitemap.xml`, and give it real `Service`
-      schema describing what that specific page actually offers.
+      each ships: add it to `sitemap.xml`, and expand its `Service` entity
+      in the JSON-LD `@graph` with the real scope/pricing/process that page
+      actually describes (the entry-page version only has a name and a
+      one-line description pulled from the homepage statement).
 - [ ] Decide where a contact address and an `/about` link belong now that
       the footer is wordmark-only — neither exists anywhere on the page at
       the moment

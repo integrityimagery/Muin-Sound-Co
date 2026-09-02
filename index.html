@@ -79,15 +79,16 @@
          can reference each other by @id (the Yoast/Google-recommended
          pattern) instead of repeating the same facts three times.
 
-         Deliberately NOT included: Service, Offer, or FAQPage schema for the
-         three categories. None of those has real content backing it yet —
-         this page names Weddings/Parties/Gaming but describes no pricing,
-         scope, or process for any of them, and structured data that doesn't
-         match visible page content is exactly what Google's own guidelines
-         warn against. `knowsAbout` below is the honest version: it states
-         subject matter, which the visible statement actually says, without
-         claiming a bookable service that isn't written yet. The real Service
-         markup belongs on each branch page once it exists. -->
+         Three Service entities below, one per door. Their name/description
+         are deliberately built ONLY from words already on this page — the
+         h1 statement, split by category — with nothing added that isn't
+         there: no price, no turnaround time, no service area, no reviews.
+         Structured data claiming any of that would not match visible page
+         content, which is exactly what Google's guidelines warn against, and
+         none of it exists here to draw from honestly. Still deliberately NOT
+         included: Offer.price and FAQPage — same reason. Each Service's own
+         page (once built) is where the real depth belongs; this is only what
+         the entry page itself actually says. -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -135,6 +136,11 @@
               "height": 920
             },
             "inLanguage": "en",
+            "mainEntity": [
+              { "@id": "https://muinsound.co/#service-weddings" },
+              { "@id": "https://muinsound.co/#service-parties" },
+              { "@id": "https://muinsound.co/#service-gaming" }
+            ],
             "hasPart": [
               {
                 "@type": "SiteNavigationElement",
@@ -152,6 +158,33 @@
                 "url": "https://muinsound.co/gaming"
               }
             ]
+          },
+          {
+            "@type": "Service",
+            "@id": "https://muinsound.co/#service-weddings",
+            "name": "Wedding Music",
+            "serviceType": "Custom wedding song composition",
+            "description": "An original song, written and produced for your wedding, from Muin Sound Co.",
+            "provider": { "@id": "https://muinsound.co/#organization" },
+            "url": "https://muinsound.co/weddings"
+          },
+          {
+            "@type": "Service",
+            "@id": "https://muinsound.co/#service-parties",
+            "name": "Party Music",
+            "serviceType": "Custom music for themed parties",
+            "description": "Original music, written and produced for your themed party, from Muin Sound Co.",
+            "provider": { "@id": "https://muinsound.co/#organization" },
+            "url": "https://muinsound.co/parties"
+          },
+          {
+            "@type": "Service",
+            "@id": "https://muinsound.co/#service-gaming",
+            "name": "Tabletop Gaming Soundtracks",
+            "serviceType": "Custom soundtrack composition for tabletop gaming",
+            "description": "An original soundtrack, written and produced for your tabletop gaming campaign, from Muin Sound Co.",
+            "provider": { "@id": "https://muinsound.co/#organization" },
+            "url": "https://muinsound.co/gaming"
           }
         ]
       }
@@ -216,7 +249,7 @@
               <img
                 class="door__img door__img--closed"
                 src="assets/images/weddings-closed.png"
-                alt=""
+                alt="An arched double door twined with a rose vine, a WEDDINGS sign above it, closed"
                 width="600"
                 height="800"
                 fetchpriority="high"
@@ -227,7 +260,7 @@
               <img
                 class="door__img door__img--open"
                 src="assets/images/weddings-open.png"
-                alt=""
+                alt="The same rose-twined arched doorway standing open, revealing a candlelit aisle inside"
                 width="600"
                 height="800"
                 fetchpriority="low"
@@ -243,7 +276,7 @@
               <img
                 class="door__img door__img--closed"
                 src="assets/images/parties-closed.png"
-                alt=""
+                alt="An arched door flanked by two hanging lanterns, a PARTIES sign hanging on it, closed"
                 width="600"
                 height="800"
                 fetchpriority="high"
@@ -254,7 +287,7 @@
               <img
                 class="door__img door__img--open"
                 src="assets/images/parties-open.png"
-                alt=""
+                alt="The lantern-flanked door standing open, revealing paper lanterns strung inside"
                 width="600"
                 height="800"
                 fetchpriority="low"
@@ -270,7 +303,7 @@
               <img
                 class="door__img door__img--closed"
                 src="assets/images/gaming-closed.png"
-                alt=""
+                alt="A wooden tavern-style door with a small windowed grille and a GAMING sign, closed"
                 width="600"
                 height="800"
                 fetchpriority="high"
@@ -281,7 +314,7 @@
               <img
                 class="door__img door__img--open"
                 src="assets/images/gaming-open.png"
-                alt=""
+                alt="The tavern door standing open, revealing a round table under a hanging lamp inside"
                 width="600"
                 height="800"
                 fetchpriority="low"
