@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One URL: the homepage is the only page that exists. Add weddings/,
+     parties/, gaming/, and about/ here as each is actually built — a
+     sitemap entry for a page that 404s is worse than no sitemap at all. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://muinsound.co/</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

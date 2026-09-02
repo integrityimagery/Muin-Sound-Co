@@ -8,7 +8,13 @@
       name="description"
       content="Muin Sound Co. writes and produces original songs and soundtracks for your wedding, themed party or tabletop gaming campaign."
     />
+    <!-- Explicit rather than relying on the (identical) default, so an
+         automated audit finds a stated policy rather than an absence. -->
+    <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://muinsound.co/" />
+    <!-- Tints mobile browser chrome (the URL bar, task switcher) to match
+         the page background rather than defaulting to white or black. -->
+    <meta name="theme-color" content="#f6eedd" />
 
     <!-- Icons, generated from the avatar mark in assets/images/. -->
     <link rel="icon" href="favicon.ico" />
@@ -48,22 +54,111 @@
       content="Original songs and soundtracks for your wedding, themed party or tabletop gaming campaign."
     />
     <meta property="og:url" content="https://muinsound.co/" />
+    <meta property="og:locale" content="en_US" />
+    <!-- The lockup, at its native size — there's no purpose-built 1200x630
+         social card yet. Width/height are given so consuming platforms can
+         lay out the card without fetching the image first; omitting them
+         doesn't break sharing, but it does make some platforms guess. -->
     <meta property="og:image" content="https://muinsound.co/assets/images/cottagecore-2a-lockup.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="920" />
+    <meta property="og:image:alt" content="Muin Sound Co." />
+
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Muin Sound Co. — Weddings, Parties &amp; Tabletop Gaming" />
+    <meta
+      name="twitter:description"
+      content="Original songs and soundtracks for your wedding, themed party or tabletop gaming campaign."
+    />
+    <meta name="twitter:image" content="https://muinsound.co/assets/images/cottagecore-2a-lockup.png" />
+    <meta name="twitter:image:alt" content="Muin Sound Co." />
 
     <link rel="stylesheet" href="styles.css" />
 
+    <!-- One @graph rather than several separate <script> blocks, so entities
+         can reference each other by @id (the Yoast/Google-recommended
+         pattern) instead of repeating the same facts three times.
+
+         Deliberately NOT included: Service, Offer, or FAQPage schema for the
+         three categories. None of those has real content backing it yet —
+         this page names Weddings/Parties/Gaming but describes no pricing,
+         scope, or process for any of them, and structured data that doesn't
+         match visible page content is exactly what Google's own guidelines
+         warn against. `knowsAbout` below is the honest version: it states
+         subject matter, which the visible statement actually says, without
+         claiming a bookable service that isn't written yet. The real Service
+         markup belongs on each branch page once it exists. -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Muin Sound Co.",
-        "url": "https://muinsound.co/",
-        "logo": "https://muinsound.co/assets/images/cottagecore-2a-avatar.png"
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://muinsound.co/#organization",
+            "name": "Muin Sound Co.",
+            "url": "https://muinsound.co/",
+            "description": "Muin Sound Co. writes and produces original songs and soundtracks for weddings, themed parties, and tabletop gaming campaigns.",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://muinsound.co/assets/images/cottagecore-2a-avatar.png",
+              "width": 720,
+              "height": 720
+            },
+            "image": { "@id": "https://muinsound.co/#logo" },
+            "knowsAbout": [
+              "Wedding music composition",
+              "Custom party music",
+              "Tabletop gaming soundtracks"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://muinsound.co/#website",
+            "url": "https://muinsound.co/",
+            "name": "Muin Sound Co.",
+            "publisher": { "@id": "https://muinsound.co/#organization" },
+            "inLanguage": "en"
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://muinsound.co/#webpage",
+            "url": "https://muinsound.co/",
+            "name": "Muin Sound Co. — Custom Music for Weddings, Parties & Tabletop Gaming",
+            "description": "Muin Sound Co. writes and produces original songs and soundtracks for your wedding, themed party or tabletop gaming campaign.",
+            "isPartOf": { "@id": "https://muinsound.co/#website" },
+            "about": { "@id": "https://muinsound.co/#organization" },
+            "primaryImageOfPage": {
+              "@type": "ImageObject",
+              "@id": "https://muinsound.co/#logo",
+              "url": "https://muinsound.co/assets/images/cottagecore-2a-lockup.png",
+              "width": 1200,
+              "height": 920
+            },
+            "inLanguage": "en",
+            "hasPart": [
+              {
+                "@type": "SiteNavigationElement",
+                "name": "Weddings",
+                "url": "https://muinsound.co/weddings"
+              },
+              {
+                "@type": "SiteNavigationElement",
+                "name": "Parties",
+                "url": "https://muinsound.co/parties"
+              },
+              {
+                "@type": "SiteNavigationElement",
+                "name": "Gaming",
+                "url": "https://muinsound.co/gaming"
+              }
+            ]
+          }
+        ]
       }
     </script>
-    <!-- PLACEHOLDER: add a "sameAs" array of real social profile URLs above
-         once they exist. Omitted rather than filled with invented links. -->
+    <!-- PLACEHOLDER: add a "sameAs" array of real social profile URLs to the
+         Organization entity above once they exist. Omitted rather than
+         filled with invented links. -->
   </head>
 
   <body>

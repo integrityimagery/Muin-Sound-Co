@@ -1,0 +1,8 @@
+# No disallows anywhere, including for AI crawlers (GPTBot, ClaudeBot,
+# PerplexityBot, Google-Extended, CCBot, and so on) — this is a marketing
+# site that wants to be found, so the default here is fully open rather than
+# opting any of them out.
+User-agent: *
+Allow: /
+
+Sitemap: https://muinsound.co/sitemap.xml

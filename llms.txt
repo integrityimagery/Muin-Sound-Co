@@ -1,0 +1,11 @@
+# Muin Sound Co.
+
+> Muin Sound Co. writes and produces original songs and soundtracks for
+> weddings, themed parties, and tabletop gaming campaigns.
+
+Muin Sound Co. is a custom music service. The homepage at
+https://muinsound.co/ is the entry point and, as of this writing, the only
+built page on the site — dedicated pages for weddings, parties, and
+tabletop gaming are in progress and not yet published, so this file
+deliberately does not link to them yet. Check https://muinsound.co/ directly
+for the current state of the site.

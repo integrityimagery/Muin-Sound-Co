@@ -28,6 +28,9 @@ styles.css           Every rule, in one file.
 assets/images/       Logo set (three themes) and the six door illustrations.
 favicon.ico, favicon-32.png, apple-touch-icon.png
                       Generated from assets/images/cottagecore-2a-avatar.png.
+robots.txt            Fully open, points at sitemap.xml.
+sitemap.xml           One URL — the only page that exists.
+llms.txt              A short, honest summary for AI agents/crawlers.
 .github/workflows/    A no-build GitHub Pages deploy.
 ```
 
@@ -120,6 +123,103 @@ leaves behind, publishing raw git internals as static files.
 **One-time setup**, if not already done: repo **Settings → Pages → Build and
 deployment → Source: GitHub Actions**.
 
+## Accessibility
+
+Audited with [axe-core](https://github.com/dequelabs/axe-core) against every
+WCAG 2.0/2.1/2.2 A and AA rule plus its best-practice set: **zero
+violations, zero items needing manual review, 30 rules passed.** That
+includes `color-contrast`, `target-size` (WCAG 2.5.8's 24×24px minimum —
+the doors are ~300×400px, nowhere close to a concern), and `bypass` (no skip
+link exists, and none is missing one: there is no repeated navigation block
+on this page for a skip link to skip past).
+
+To reproduce:
+
+```bash
+npm install axe-core --no-save   # sandboxed install, nothing committed
+node -e "
+const { chromium } = require('playwright');
+const { readFileSync } = require('fs');
+(async () => {
+  const axe = readFileSync('node_modules/axe-core/axe.min.js', 'utf8');
+  const b = await chromium.launch();
+  const p = await b.newPage();
+  await p.goto('http://localhost:4321/');  // npm run-free: python3 -m http.server 4321
+  await p.addScriptTag({ content: axe });
+  const r = await p.evaluate(() => axe.run());
+  console.log(r.violations);
+  await b.close();
+})();
+"
+```
+
+Also verified directly against the accessibility tree (`page.accessibility.snapshot()`,
+Playwright), not just axe's DOM-level checks:
+
+- **Landmarks**: exactly one `main`, one `nav` (named "Choose your
+  occasion"), one `contentinfo` — nothing on the page sits outside one of
+  the three, other than the `aria-hidden` decorative frame.
+- **Tab order**: Weddings → Parties → Gaming. Nothing else is
+  focusable — the frame's SVGs have no interactive children, and the footer
+  wordmark is a plain image, not a link.
+- **Reflow**: no horizontal scroll at 320px CSS width, the WCAG 1.4.10
+  benchmark (400% zoom on a 1280px viewport).
+- **Reduced motion**: the door cross-fade transition drops to `0s` under
+  `prefers-reduced-motion: reduce` — verified via computed style, not just
+  the CSS rule existing.
+
+None of this required adding anything to the page — the accessible
+structure (empty `alt` on decorative images, `aria-label` naming each door,
+one `h1`, real focus rings distinct from hover) was already in place from
+how the page was built. This was verification, not remediation.
+
+## SEO & structured data
+
+**Structured data** is one `@graph` (`Organization`, `WebSite`, `WebPage`,
+plus three `SiteNavigationElement` entries for the doors) rather than
+several separate `<script>` blocks, so entities reference each other by
+`@id` instead of repeating the same facts three times — the pattern Google's
+own examples and most SEO tooling use. Verified by parsing it and confirming
+every `@id` reference actually resolves to a defined entity in the graph
+(nothing here is checked by a browser at render time, so a typo would
+otherwise ship silently).
+
+**Deliberately not included**: `Service`, `Offer`, or `FAQPage` schema for
+Weddings/Parties/Gaming. This page names those three categories but
+describes no pricing, scope, or process for any of them — structured data
+that doesn't match visible page content is exactly what Google's structured
+data guidelines warn against, and it's the same reason the build brief that
+produced this page held off on this schema in the first place. `knowsAbout`
+on the `Organization` entity is the honest middle ground: it states subject
+matter the visible statement already says, without claiming a bookable
+service that isn't written yet. The real `Service` markup belongs on each
+branch page once it exists, describing what that page actually offers.
+
+**`robots.txt`** is fully open — `Allow: /` for every user-agent, including
+AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, and so on).
+Nothing here opts any of them out; if that's ever wanted for a specific
+crawler, it's a one-line addition, not a redesign.
+
+**`sitemap.xml`** lists exactly the one page that exists. Listing
+`weddings`/`parties`/`gaming` before they're built would tell crawlers to
+index pages that 404 — worse than not mentioning them at all. Add each as
+it ships.
+
+**`llms.txt`** is the emerging (not yet a ratified standard, and not
+confirmed to be consumed by every major AI crawler) convention for a short,
+structured, agent-readable summary of a site. Included because it's cheap
+and directly on-topic for AI-search visibility, but it's worth being honest
+that its adoption isn't guaranteed the way `robots.txt` or JSON-LD is. It
+deliberately doesn't link to the three unbuilt branch pages, for the same
+reason the sitemap doesn't.
+
+**Open Graph / Twitter Card** tags are complete on both (title, description,
+image, and image dimensions/alt on OG; the Twitter-specific equivalents
+rather than relying on OG fallback, which isn't guaranteed on every
+consuming platform). `og:image` uses the lockup at its native 1200×920 —
+there's no purpose-built 1200×630 social card yet; the existing brand mark
+is the honest choice over fabricating a new asset for this pass.
+
 ## Colours
 
 Hearth & Dried Herb only, as custom properties on `:root` — nothing in the
@@ -130,11 +230,19 @@ structured for that even though it isn't needed yet.
 
 ## Before launch
 
-- [ ] Real domain — `muinsound.co` is a placeholder used in the canonical
-      link, Open Graph tags, and JSON-LD. Update all of them together.
-- [ ] `sameAs` social profile URLs in the JSON-LD block, once real ones exist
-      (deliberately omitted rather than filled with invented links)
-- [ ] Build `weddings`, `parties`, and `gaming` — each currently 404s
+- [ ] Real domain — `muinsound.co` is a placeholder, used in the canonical
+      link, theme-color-adjacent meta, Open Graph and Twitter tags, the
+      JSON-LD `@graph` (five URLs/`@id`s), `robots.txt`'s `Sitemap:` line,
+      and `sitemap.xml` itself. Update all of them together — a grep for
+      `muinsound.co` should find every one.
+- [ ] `sameAs` social profile URLs on the `Organization` entity in the
+      JSON-LD block, once real ones exist (deliberately omitted rather than
+      filled with invented links)
+- [ ] Build `weddings`, `parties`, and `gaming` — each currently 404s. As
+      each ships: add it to `sitemap.xml`, and give it real `Service`
+      schema describing what that specific page actually offers.
 - [ ] Decide where a contact address and an `/about` link belong now that
       the footer is wordmark-only — neither exists anywhere on the page at
       the moment
+- [ ] A purpose-built 1200×630 social share image, if the lockup at its
+      native 1200×920 ever looks wrong cropped on a specific platform
