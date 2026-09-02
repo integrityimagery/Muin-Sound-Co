@@ -1,5 +1,11 @@
 name: Deploy to GitHub Pages
 
+# No build step. The site is served exactly as it sits in the repo — this
+# workflow's only job is to hand the site files to GitHub Pages, which is why
+# it exists at all: the repo's Pages source is set to "GitHub Actions" (a
+# one-time setting in repo Settings -> Pages), and that source requires SOME
+# workflow to produce a Pages artifact even when there is nothing to compile.
+
 on:
   push:
     branches:
@@ -18,52 +24,29 @@ permissions:
   id-token: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      # Project sites are served from /<repo>/, so the build needs to know its
-      # own base path. Both values are derived from the repository rather than
-      # hardcoded, so a rename or a fork does not silently produce dead links.
-      - name: Resolve Pages URLs
-        id: pages
-        uses: actions/configure-pages@v5
-
-      - name: Verify
-        run: npm run contrast && npm run check
-
-      - name: Build
-        env:
-          SITE_URL: ${{ steps.pages.outputs.origin }}
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
-        run: npm run build
-
-      # The post-build audit checks heading hierarchy, unique metadata, JSON-LD
-      # matching visible text, dead internal links, alt text and stylesheet
-      # discipline. A failure here should stop the deploy, not ship.
-      - name: Audit build output
-        env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
-        run: npm run audit
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+
+      # Stage an ALLOWLIST of the actual site files rather than uploading the
+      # checkout directory as-is. actions/checkout leaves a .git directory in
+      # the working copy, and uploading the repo root wholesale would publish
+      # it (and .github, and anything else that shows up here later) as
+      # static files on the live site. Naming exactly what belongs on Pages
+      # is what keeps that from ever happening by accident.
+      - name: Stage site files
+        run: |
+          mkdir _site
+          cp index.html styles.css favicon.ico favicon-32.png apple-touch-icon.png _site/
+          cp -r assets _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
       - id: deployment
         uses: actions/deploy-pages@v4

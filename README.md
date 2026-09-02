@@ -1,339 +1,109 @@
 # Muin Sound Co.
 
-Custom wedding songs, written from the couple's own story. Astro, static
-output, no client framework.
+An entry page. It introduces the brand and offers exactly one choice: which
+of three doors to walk through — Weddings, Parties, or Tabletop Gaming.
 
-Muin is the Ogham letter for vine — growth through connection, things that grow
-stronger by intertwining. The logo's arch and foliage carry that; the page
-layout itself is plain, one centred column.
+Plain static: `index.html`, `styles.css`, and no JavaScript at all. No
+framework, no build step, no dependencies. This is deliberate — with a single
+page there is nothing to share yet, so a build step would only slow down
+iteration. Astro is deferred until a second page exists.
 
 ---
 
 ## Running it
 
+Any static file server works, since there is no build:
+
 ```bash
-npm install
-npm run dev          # http://localhost:4321
-npm run verify       # contrast + types + build + post-build audit
+python3 -m http.server 4321   # or `npx serve`, or open index.html directly
 ```
-
-| Script | What it does |
-|---|---|
-| `npm run dev` | Dev server |
-| `npm run build` | Static build to `dist/` |
-| `npm run preview` | Serve the build |
-| `npm run check` | `astro check` — TypeScript and template diagnostics |
-| `npm run contrast` | WCAG contrast math over all three palettes |
-| `npm run audit` | Post-build audit of `dist/` (needs a build first) |
-| `npm run test:a11y` | Browser behaviour tests (needs `npm run preview` running) |
-| `npm run verify` | The first four, in order |
-| `PREVIEW_BASE=... npm run test:a11y` | Point the browser tests at another origin |
-| `npm run audio` | Regenerates the placeholder audio |
-
----
-
-## Deploying
-
-Pushes to `main` (or the current feature branch) build and publish to GitHub
-Pages via `.github/workflows/deploy.yml`. The workflow runs `contrast`, `check`
-and `audit` first, so a contrast regression or a dead link fails the deploy
-rather than shipping.
-
-**One-time setup:** repo **Settings → Pages → Build and deployment → Source:
-GitHub Actions**. Nothing else to configure — the workflow derives the URL and
-base path from the repository itself.
-
-### Base paths
-
-Pages serves this as a *project site*, at `/<repo>/` rather than the domain
-root. Astro rewrites the URLs it generates (routes, imported images), but not
-paths written by hand — those would work in local dev and 404 after deploy,
-which is the worst kind of bug to catch late. Two things close that gap:
-
-- `src/lib/paths.ts` — `withBase()`, for every hand-written `href` and every
-  `/public` asset path (the audio files).
-- The `rehypeBasePaths` plugin in `astro.config.mjs` — for internal links in
-  markdown body copy, so `[video consult](/start/)` keeps working.
-
-`npm run audit` fails if any internal link is missing the base, so this cannot
-silently regress. With no base configured both are no-ops and local dev is
-unaffected.
-
-Moving to a custom domain later: set the domain in repo settings, add a
-`public/CNAME`, and the base becomes `/` — no source changes needed.
 
 ---
 
 ## Where things are
 
 ```
-assets/images/          Logo artwork. Three complete sets, one per theme.
-public/audio/           PLACEHOLDER audio. Replace before launch.
-src/data/               Brand facts, packages, FAQ, tracks, themes, stories.
-src/styles/global.css   Reset, palettes, type scale, layout, components.
-src/layouts/            Shell + the four layouts.
-src/components/         Shared pieces.
-src/content/stories/    Story pages, one markdown file each.
-scripts/                Verification and asset generation.
+index.html          The whole page.
+styles.css           Every rule, in one file.
+assets/images/       Logo set (three themes) and the six door illustrations.
+favicon.ico, favicon-32.png, apple-touch-icon.png
+                      Generated from assets/images/cottagecore-2a-avatar.png.
+.github/workflows/    A no-build GitHub Pages deploy.
 ```
 
-`src/data/*` is the single source of truth. The visible page and the JSON-LD
-both read from it, so structured data cannot drift from what the page says.
+## The doors
 
----
+`assets/images/{weddings,parties,gaming}-{closed,open}.png` are the source
+artwork the user supplied — the `-closed`/`-open` suffixes are the two states.
+For display, each was resized to 600×800 (2× a 300×400 CSS box, the door's
+approximate on-page size) and re-exported as WebP with an optimized PNG
+fallback, served through `<picture>`. The originals were 1200×1600 — 4× more
+resolution than the page ever shows, so resizing them cut total door-image
+weight from ~1.26MB to ~330KB, most of the concrete performance win described
+in the brief.
 
-## The layout system
+**Interaction**: both states are stacked in the same box; the closed image is
+the base layer, the open image sits on top at `opacity: 0`, and hovering or
+focusing the door link raises it to `1` over a 300ms transition — a cross-fade
+rather than a hard `src` swap, so there's no flicker. Both states are
+preloaded (closed at high priority, open at low) so the first hover doesn't
+flash blank waiting on a fetch.
 
-Four layouts. Every page uses exactly one. `Shell` sits under all four and owns
-`<head>`, the header, the footer and the theme attributes.
+The hover effect is gated behind `@media (hover: hover) and (pointer: fine)`,
+which is what keeps touch devices safe: there is no hover event on touch, so
+nothing intercepts the tap, and the anchor's native behavior — navigate
+immediately — is the only thing that happens. No JavaScript is involved, which
+means there is no `preventDefault()` anywhere to accidentally leave a device
+requiring a second tap.
 
-| Layout | Used by |
-|---|---|
-| `Base` | About, Packages, For Photographers, Start Here, Stories index, 404 |
-| `Story` | `/stories/*` |
-| `Listen` | `/listen` — wider content column for track cards |
-| `Home` | `/` |
+Keyboard focus (`:focus-visible`) reveals the open state exactly like hover
+does, on every device, and additionally shows a `--focus`-coloured outline —
+distinct from hover, which shows no ring at all, only the artwork.
 
-### Adding a story page
+`prefers-reduced-motion: reduce` drops the transition to `0s`: the door still
+changes state on hover/focus, it simply doesn't cross-fade to get there.
 
-Create one markdown file in `src/content/stories/`:
+## Links
 
-```yaml
----
-theme: grove          # hearth | plum | grove
-hero: photo           # photo | type | audio
-weight: standard      # loud | standard | quiet
-song:                 # optional
-  src: /audio/your-song.mp3
-  title: Song title
-  description: Style and instrumentation, in prose.
-  lyric: A short excerpt, as text.
+Door and footer links are relative with no leading slash (`href="weddings"`,
+not `href="/weddings"`). There's no `CNAME` in this repo, so it's served from
+a GitHub Pages *project* site at `/Muin-Sound-Co/`, not the domain root — an
+absolute `/weddings` would resolve to the wrong place and 404 even once that
+page exists. Relative paths resolve correctly at any depth, including if a
+custom domain is added later, so there's no reason to prefer the absolute
+form here.
 
-title: The page heading
-description: Unique meta description.
-lede: One or two sentences under the heading.
----
+**`weddings`, `parties`, `gaming`, and `about` are all intentionally
+unbuilt.** They 404 today. That's correct for this pass — the brief is
+explicit that stub pages should not be created ahead of the branch pages
+they belong to.
 
-Body copy in markdown.
-```
+## Deploying
 
-That is the whole job. The schema in `src/content.config.ts` is a
-`z.strictObject`, so **any frontmatter key not declared there fails the build**
-with the offending file named. That is deliberate — the four knobs are the
-constraint that keeps a new story page a twenty-minute job instead of a design
-project. Adding a fifth is a reviewable edit to that schema, not something that
-happens by accident.
+`.github/workflows/deploy.yml` runs on push to `main` and to this feature
+branch. It does not build anything — it stages an *allowlist* of the actual
+site files (`index.html`, `styles.css`, the icons, `assets/`) into a clean
+directory and hands that to GitHub Pages. The allowlist matters: uploading the
+repo root as-is would include the `.git` directory that `actions/checkout`
+leaves behind, publishing raw git internals as static files.
 
----
+**One-time setup**, if not already done: repo **Settings → Pages → Build and
+deployment → Source: GitHub Actions**.
 
-## Themes
+## Colours
 
-Three palettes, set with `data-theme` on `<html>`. Every colour in the
-stylesheet goes through a custom property, so a theme swap repaints everything.
-`npm run audit` fails the build if a hex value appears outside the palette
-block.
-
-**A theme is a palette AND a logo.** The three supplied logo sets are drawn for
-their own grounds and are illegible on the others — the whimsigoth lockup has a
-cream wordmark that vanishes on parchment, and the cottagecore lockup is dark
-brown, which vanishes on near-black plum. `src/data/themes.ts` maps theme to
-artwork. No file is ever recoloured; this selects between supplied variants.
-
-| Theme | Palette | Logo set |
-|---|---|---|
-| `hearth` | Hearth & Dried Herb (default, light) | `cottagecore-2a-*` |
-| `plum` | Plum & Starlight (dark) | `whimsigoth-1b-*` |
-| `grove` | Enchanted Twilight Grove (light) | `woodland-3c-*` |
-
-There is no `prefers-color-scheme` switching. These are editorial choices per
-story, not a user setting.
-
----
-
-## Accessibility
-
-`npm run contrast` does real relative-luminance math over all three palettes:
-51 enforced pairings, plus type-size floors for the `weight` knob. It exits
-non-zero on failure. `npm run test:a11y` drives a real browser to check focus
-trapping, Escape handling, keyboard audio operation, the no-JS fallback and
-reduced motion.
-
-Two things are load-bearing and easy to break by accident:
-
-- **`outline-offset` on the focus ring.** It puts the ring on whatever the
-  control sits on, never on the control's own fill. `--focus` is verified
-  against the page and card grounds; against a rust or grove-green button fill
-  it would measure 1.7:1 and 1.3:1. Primary buttons carry a second inner ring
-  in `--btn-text` so the indicator is separated from the fill on any ground.
-- **Card borders, not card fills.** Surfaces sit ~1.08:1 against the page by
-  design, so the fill cannot delineate a card. `--border` does that work, which
-  is why it is enforced at 3:1 rather than treated as decoration.
-
-Disabled controls sit at ~2.8:1 in all three palettes. WCAG explicitly exempts
-them, and a disabled button that met 4.5:1 would not read as disabled — so the
-state is never signalled by colour alone: disabled controls carry the native
-`disabled` attribute, `cursor: not-allowed`, and a flattened border.
-
----
+Hearth & Dried Herb only, as custom properties on `:root` — nothing in the
+stylesheet hardcodes a hex value outside that block. A second palette (for a
+themed branch page later) is a matter of adding `[data-theme="..."]`
+overrides and swapping a `data-theme` attribute on `<html>`; the CSS is
+structured for that even though it isn't needed yet.
 
 ## Before launch
 
-Search the codebase for `PLACEHOLDER`. Every stand-in is marked.
-
-- [ ] Real domain in `astro.config.mjs` and `src/data/site.ts`
-- [ ] Real contact email and social URLs (these become `sameAs` in JSON-LD —
-      a dead URL there publishes a false claim)
-- [ ] Real prices in `src/data/packages.ts`. Set `priceValue` alongside
-      `priceLabel`; while it is `null` no price is emitted to structured data,
-      which is intentional — publishing an invented number would be publishing
-      a false claim. `npm run audit` enforces this.
-- [ ] Real FAQ answers in `src/data/faq.ts`, especially rights and licensing
-- [ ] Real turnaround time (currently `X–X weeks` in three places)
-- [ ] Real testimonials, replacing the marked slots on the homepage
-- [ ] Real photography, passed as `photo.src` + `photo.alt` in story
-      frontmatter. Until then `PlaceholderFigure` renders a marked panel at the
-      right aspect ratio rather than stock imagery.
-- [ ] Real audio as MP3, replacing `public/audio/placeholder-*.wav`, and update
-      `src/data/tracks.ts`
-
-### The header
-
-One header on every page, including the story pages: **links, mark, links** in
-a single row, vertically centred on each other, collapsing to the wordmark on
-scroll without moving anything below it.
-
-Two details are load-bearing.
-
-**It is `position: fixed` with a measured spacer, not `position: sticky`.** A
-sticky header is still in the document flow, so shrinking it on scroll pulls
-everything below it up by the difference — a ~230px lurch mid-scroll that no
-amount of easing disguises. Out of flow with a constant-height spacer, the
-collapse moves nothing but the header. **Never give `.site-header` a
-`transform`**: a transformed ancestor becomes the containing block for
-`position: fixed` descendants, which would break the off-canvas mobile menu
-nested inside it.
-
-**The row is two grids with an identical template, not a grid and a subgrid.**
-The mark and the nav are siblings, and the nav has to keep its own box — it is
-the navigation landmark, and `display: contents` on a landmark is exactly the
-kind of thing that has historically dropped it out of the accessibility tree.
-So the nav is laid over the same row as the mark, spanning the full width, with
-the same three columns; its middle column is empty and the mark sits in the
-header grid's. Both templates use `--mark-w` for that column and the same
-`--header-gap`, so they agree to the pixel — and keep agreeing through the
-collapse, since `--mark-w` is a registered property that transitions.
-
-The nav items are split into two lists rather than duplicated, so reading order
-is left group then right group, which is the visual order. The split point is
-derived (`Math.ceil(nav.length / 2)`), so a seventh item rebalances the header
-instead of quietly lopsiding it.
-
-Three measurements — `--mark-w`, `--header-gap` and the nav's own item gap —
-are tuned together against one constraint: at 900px, where the side-by-side
-layout starts, the heavier group (For Photographers / About / Start Here) has
-to fit its column on one line. Widen any of them and it wraps, costing ~50px of
-header and leaving one side two lines deep and the other one.
-`npm run test:a11y` re-measures this at four widths, on two page types, in both
-states, and also reads Chromium's own accessibility tree over CDP to confirm
-the split nav is still a single `navigation` landmark with all six links inside
-it.
-
-Below 900px the whole navigation is one hamburger, so there is nothing to seat
-either side of the mark — but the arrangement is the same idea: mark centred,
-nav beside it, the two vertically centred. Stacking the hamburger under the
-wordmark instead pushed the collapsed header to 16% of a 360x640 screen, over
-the brief's 15% budget.
-
-### Page transitions
-
-A short cross-fade on navigation, and nothing else: 120ms out, 180ms in.
-
-**Cross-document view transitions, declared in CSS** —
-`@view-transition { navigation: auto }`, no router, no client-side JavaScript,
-no interception of clicks. The pages stay ordinary documents that ordinary
-navigation loads. An SPA router would have bought the same effect and taken on
-scroll restoration, focus management, re-running every page script and keeping
-the back button honest, for fourteen static pages.
-
-**Opacity only, and that is a performance decision.** Opacity is composited:
-the browser has already rasterised both snapshots and is only blending two
-layers, which costs the GPU almost nothing. An earlier version of this masked
-the outgoing page with noise generated by an SVG filter and animated the
-mask's *size*, which forces a full-viewport mask to be re-rasterised every
-frame, and moved a viewport-sized layer at the same time. It made the site
-feel slow, because it was.
-
-The browser's own fade keyframes do the work; only the timing is set here. The
-incoming page's delay is exactly the outgoing page's duration, so the two never
-overlap — cross-fading two different layouts double-exposes them, and at the
-midpoint you get one page's display type printed through another's.
-
-**Nothing is a shared element, the header included.** A named header gets its
-own snapshot group, and when it is collapsed on one page and expanded on the
-next, that group has to reconcile two heights — which either stretches the
-lettering or puts two navigation bars on screen at once. The whole page
-changing together is simpler and steadier.
-
-Reduced motion switches it off at the source (`navigation: none`) rather than
-speeding it up: `::view-transition-*` pseudo-elements live in their own tree,
-so the blanket `*` rule in section 8 never reaches them. Browsers without
-cross-document view transitions get instant navigation.
-
-Four declarations is the whole feature. `npm run audit` greps the *built*
-stylesheet for all four, because a CSS feature that works in dev and is dropped
-by Lightning CSS on the way into `dist/` is not an error — it just quietly does
-not happen.
-
-### The bug this all exposed
-
-For 332ms on **every** page load, the content rendered underneath the fixed
-header. The header's height is reserved by a spacer that a script sizes from a
-real measurement, and that measurement was being skipped: setting `data-fixed`
-also used to set `background-color`, so its declared transition was always
-running on the very next line, and the "is anything animating?" guard treated a
-colour transition as a reason not to measure a *height*. The spacer stayed at
-zero until some later callback happened to catch it.
-
-It predates the page transition — but before it, the recovery came within about
-30ms and you would never see it. The transition defers the new document's
-rendering, which stretched the same gap to a third of a second and made it
-plainly visible, worst on `/listen/`.
-
-Two fixes and a guard: the header's background is now painted unconditionally
-so nothing transitions on load, and the guard only counts animations that can
-actually move the header's bottom edge. `npm run test:a11y` samples every frame
-from the new document's first, on three routes, and fails if any frame has
-content under the header — by the time an ordinary assertion could run, it has
-already fixed itself.
-
-### The nav marker
-
-Where you are is marked by a weight change and **a small vine with three
-leaves, under the label**. It replaces two older markers at once: the green
-leaf glyph that sat before the current page's label, and the flat rule that
-marked the current section. One marker, one idea.
-
-Fixed size and centred rather than stretched to the label. Stretching is what
-forced an earlier version to be a bare wavy line with no leaves: the labels run
-from `Listen` to `For Photographers`, a 3x range, and leaves squashed by 3x are
-not leaves. It is absolutely positioned so it cannot alter the link's box — a
-block-level marker here once made story pages' header 3px taller than
-everywhere else, which the header-parity test caught.
-
-It is drawn once and left alone; there is no growth animation.
-
-Never colour alone (WCAG 1.4.1): weight 700 plus the vine. `--vine-stem` and
-`--vine-leaf` are both already enforced at 3:1 against every page ground by
-`npm run contrast`, and `npm run test:a11y` asserts the marker is present and
-actually has its leaves.
-
-### Known constraints
-
-- The placeholder audio is WAV because this environment has no MP3 encoder.
-  Real masters should be MP3 — the player takes any source.
-- The header collapse transitions `--mark-w`, a registered custom property, in
-  a `transition` shorthand. That survives Lightning CSS, but a custom property
-  in an *animation* shorthand did not: it merged `animation` with
-  `animation-timeline` into something invalid and dropped it silently, with no
-  build warning. If a transition or animation ever stops running for no visible
-  reason, check the built CSS in `dist/_astro/` before checking anything else.
+- [ ] Real contact email in the footer (currently `hello@example.com`,
+      marked `PLACEHOLDER` in `index.html`)
+- [ ] Real domain — `muinsound.co` is a placeholder used in the canonical
+      link, Open Graph tags, and JSON-LD. Update all of them together.
+- [ ] `sameAs` social profile URLs in the JSON-LD block, once real ones exist
+      (deliberately omitted rather than filled with invented links)
+- [ ] Build `weddings`, `parties`, `gaming`, and `about` — each currently 404s
