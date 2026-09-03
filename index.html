@@ -326,16 +326,18 @@
     </main>
 
     <footer class="site-footer">
-      <!-- The wordmark is the only content here. It carries the same
-           non-empty alt the lockup did up top — it is now the sole visible
-           text identifying the business anywhere on the page. -->
+      <!-- The full lockup, not the flat wordmark — same asset the top-of-page
+           logo used before it was removed. It carries a non-empty alt: this
+           is the sole visible text identifying the business anywhere on the
+           page. width/height are the lockup's real 1200x920 ratio, so the
+           aspect-ratio hint is correct even before CSS sizes it down. -->
       <picture>
-        <source srcset="assets/images/cottagecore-2a-wordmark.webp" type="image/webp" />
+        <source srcset="assets/images/cottagecore-2a-lockup.webp" type="image/webp" />
         <img
-          src="assets/images/cottagecore-2a-wordmark.png"
+          src="assets/images/cottagecore-2a-lockup.png"
           alt="Muin Sound Co."
-          width="440"
-          height="183"
+          width="1200"
+          height="920"
           loading="lazy"
         />
       </picture>
