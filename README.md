@@ -99,18 +99,12 @@ text, which no longer exists, so both were dropped.
 
 ## The footer
 
-The full lockup, not the flat wordmark — `assets/images/cottagecore-2a-lockup`
-(webp + png via `<picture>`, same pattern as the doors, and the same asset
-the top-of-page logo used before it was removed). No text, no links. Sized
-at `clamp(9.75rem, 7.5rem + 7.5vw, 12.75rem)` — exactly 75% of the clamp the
-top-of-page logo used, so it reads as the same mark shown smaller for a
-footer role rather than a different image.
-
-It carries a non-empty `alt="Muin Sound Co."`: with the top-of-page logo
-gone, this is the *only* place the business name appears anywhere in the
-page's visible or accessible content (the `<title>`, meta description, and
-JSON-LD still carry it, but none of those are page content a reader
-encounters).
+Wordmark only, no text and no links — `assets/images/cottagecore-2a-wordmark`
+(webp + png via `<picture>`, same pattern as the doors). It carries a
+non-empty `alt="Muin Sound Co."`: with the top-of-page lockup gone, this is
+now the *only* place the business name appears anywhere in the page's visible
+or accessible content (the `<title>`, meta description, and JSON-LD still
+carry it, but none of those are page content a reader encounters).
 
 ## Links
 
@@ -127,7 +121,7 @@ form here.
 pages should not be created ahead of the branch pages they belong to.
 
 There is currently no link to `/about` anywhere on the page — the footer that
-used to carry it was replaced with the logo, which isn't a link (there is
+used to carry it was replaced with the wordmark, which isn't a link (there is
 nowhere else on the site for it to usefully point to yet).
 
 ## Deploying
@@ -146,7 +140,7 @@ deployment → Source: GitHub Actions**.
 
 Audited with [axe-core](https://github.com/dequelabs/axe-core) against every
 WCAG 2.0/2.1/2.2 A and AA rule plus its best-practice set: **zero
-violations, zero items needing manual review, 29 rules passed.** That
+violations, zero items needing manual review, 30 rules passed.** That
 includes `color-contrast`, `target-size` (WCAG 2.5.8's 24×24px minimum —
 the doors are ~300×400px, nowhere close to a concern), and `bypass` (no skip
 link exists, and none is missing one: there is no repeated navigation block
@@ -180,7 +174,7 @@ Playwright), not just axe's DOM-level checks:
   the three, other than the `aria-hidden` decorative frame.
 - **Tab order**: Weddings → Parties → Gaming. Nothing else is
   focusable — the frame's SVGs have no interactive children, and the footer
-  footer logo is a plain image, not a link.
+  wordmark is a plain image, not a link.
 - **Reflow**: no horizontal scroll at 320px CSS width, the WCAG 1.4.10
   benchmark (400% zoom on a 1280px viewport).
 - **Reduced motion**: the door cross-fade transition drops to `0s` under
@@ -269,7 +263,7 @@ structured for that even though it isn't needed yet.
       actually describes (the entry-page version only has a name and a
       one-line description pulled from the homepage statement).
 - [ ] Decide where a contact address and an `/about` link belong now that
-      the footer is logo-only — neither exists anywhere on the page at
+      the footer is wordmark-only — neither exists anywhere on the page at
       the moment
 - [ ] A purpose-built 1200×630 social share image, if the lockup at its
       native 1200×920 ever looks wrong cropped on a specific platform

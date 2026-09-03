@@ -187,10 +187,8 @@ a:focus-visible {
   text-align: center;
 }
 
-/* 75% of the clamp the top-of-page logo used before it was removed
-   (13rem/10rem+10vw/17rem) — same mark, shown smaller for a footer role. */
 .site-footer img {
-  width: clamp(9.75rem, 7.5rem + 7.5vw, 12.75rem);
+  width: clamp(9rem, 6rem + 8vw, 12rem);
   height: auto;
   margin-inline: auto;
 }
