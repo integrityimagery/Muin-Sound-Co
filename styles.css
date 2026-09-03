@@ -1,10 +1,12 @@
 /* ==========================================================================
    Muin Sound Co. — homepage stylesheet
 
-   Plain CSS, no build step. Three things live on this page: the statement,
-   the three doors, and a footer carrying the wordmark. The spacing between
-   them is most of the design, so the custom properties below exist to keep
-   that rhythm centralised rather than repeated at each rule.
+   Plain CSS, no build step. Three things live on this page, in this order:
+   the wordmark, one line of tagline copy, and the three doors. No footer —
+   the wordmark that used to live there is now the lead element instead, and
+   the page ends right after the doors. The spacing between the three is most
+   of the design, so the custom properties below exist to keep that rhythm
+   centralised rather than repeated at each rule.
 
    Palette: Hearth & Dried Herb only, for now. Every colour is a custom
    property so a second palette (for a themed branch page later) is a matter
@@ -33,10 +35,12 @@
 
   /* --- Rhythm ------------------------------------------------------------
      One set of gaps, referenced everywhere, so the page's spacing changes in
-     one place rather than three. */
+     one place rather than three. Deliberately modest and close to even
+     between the three blocks — wordmark, tagline, doors — so they read as
+     one composed group instead of elements pushed apart. */
   --gutter: clamp(1.25rem, 4vw, 3rem);
-  --gap-statement-doors: clamp(1.75rem, 1.25rem + 1.5vw, 2.5rem);
-  --gap-doors-footer: clamp(1.75rem, 1.25rem + 1.5vw, 2.5rem);
+  --gap-brand-tagline: clamp(0.75rem, 0.5rem + 0.75vw, 1.25rem);
+  --gap-tagline-doors: clamp(1.5rem, 1rem + 1.5vw, 2.25rem);
   --door-w: 300px;
 }
 
@@ -86,7 +90,7 @@ a:hover {
 a:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 /* --------------------------------------------------------------------------
@@ -97,24 +101,41 @@ a:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: clamp(1.5rem, 3vh + 0.75rem, 3rem) var(--gutter) 0;
+  /* Bottom padding matters now in a way it didn't before: the doors are the
+     last thing on the page, full stop — there is no footer beneath them to
+     supply its own closing space. */
+  padding: clamp(1.5rem, 3vh + 0.75rem, 2.75rem) var(--gutter)
+    clamp(2rem, 4vh + 1rem, 3.5rem);
   text-align: center;
 }
 
-.statement {
-  margin: 0;
-  /* Wide enough that the sentence breaks to two lines rather than three at
-     ordinary desktop widths — measured against the actual copy, not guessed;
-     see the note in the README. `max-width` only ever CAPS the line, so on a
-     narrower viewport it simply wraps to more lines within whatever space is
-     actually available, which is unavoidable at any readable size once the
-     container itself is narrower than the line. */
-  max-width: 63ch;
+.brand img {
+  width: clamp(9.5rem, 7rem + 8vw, 12.5rem);
+  height: auto;
+}
+
+.tagline {
+  margin: var(--gap-brand-tagline) 0 0;
+  /* Wide enough to hold the whole sentence on one line at ordinary desktop
+     widths — measured against the actual copy (51 characters), not guessed.
+     Below the phone breakpoint this is overridden entirely by a smaller
+     font-size and a forced break instead; see the responsive section. */
+  max-width: 40ch;
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(1.0625rem, 0.95rem + 0.55vw, 1.25rem);
-  line-height: 1.55;
+  /* The largest text on the page, deliberately — everything else (the
+     wordmark is an image, the captions are small tracked caps) is smaller. */
+  font-size: clamp(1.625rem, 1.1rem + 2.6vw, 2.5rem);
+  line-height: 1.25;
   color: var(--heading);
+}
+
+/* Inline by default: at desktop widths the whole line reads as one sentence
+   and wraps only where it naturally must. Forced onto its own line below a
+   phone-width breakpoint — see the responsive section — so the break falls
+   after "the one that" rather than wherever the browser happens to land. */
+.tagline__tail {
+  display: inline;
 }
 
 /* --------------------------------------------------------------------------
@@ -126,7 +147,7 @@ a:focus-visible {
   flex-direction: column;
   align-items: center;
   gap: clamp(1.5rem, 1rem + 2vw, 2.5rem);
-  margin: var(--gap-statement-doors) 0 0;
+  margin: var(--gap-tagline-doors) 0 0;
   width: 100%;
 }
 
@@ -137,8 +158,9 @@ a:focus-visible {
   border-radius: 4px;
 }
 
-/* The whole door is the link, and the hit area is the full artwork —
-   generous, and there is no separate text label to click instead. */
+/* The whole door is the link, and the hit area is the full artwork plus its
+   caption underneath — both live inside the same <a>, so the caption is
+   clickable too and the accessible name comes from its text. */
 .door__frame {
   position: relative;
   display: block;
@@ -165,7 +187,8 @@ a:focus-visible {
    `pointer: fine` is what keeps a touch tap from ever "opening" the door
    first and needing a second tap to follow the link — on touch, there is no
    hover event at all, so the anchor's default behaviour (navigate
-   immediately) is the only thing that happens. */
+   immediately) is the only thing that happens. The closed state is what a
+   touch device shows, by construction, with nothing extra needed for it. */
 @media (hover: hover) and (pointer: fine) {
   .door:hover .door__img--open {
     opacity: 1;
@@ -177,20 +200,27 @@ a:focus-visible {
   opacity: 1;
 }
 
-/* --------------------------------------------------------------------------
-   Footer
-   -------------------------------------------------------------------------- */
-
-.site-footer {
-  margin-top: var(--gap-doors-footer);
-  padding: clamp(1.5rem, 2.5vh + 0.75rem, 2.25rem) var(--gutter);
-  text-align: center;
-}
-
-.site-footer img {
-  width: clamp(9rem, 6rem + 8vw, 12rem);
-  height: auto;
-  margin-inline: auto;
+/* Spaced serif caps, echoing the lettering already drawn into the door
+   signs themselves, at a smaller size and a lighter weight than the
+   tagline. `white-space: nowrap` is a deliberate guarantee, not a hazard —
+   the font-size here was measured against the actual longest caption
+   ("Themed events and murder mysteries") to confirm it fits the desktop
+   door width on one line before this was set; see the README. */
+.door__caption {
+  display: block;
+  margin-top: 0.65rem;
+  font-family: var(--font-display);
+  font-weight: 300;
+  /* Capped at 0.6875rem/11px, not the 12px the box would technically fit —
+     real margin against the longest caption ("Themed events and murder
+     mysteries"), not a measurement run right up to the edge. Fraunces at
+     this weight/tracking, once the webfont itself is loading rather than a
+     fallback serif, is the thing that margin is actually for. */
+  font-size: clamp(0.65rem, 0.58rem + 0.2vw, 0.6875rem);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------
@@ -280,8 +310,10 @@ a:focus-visible {
   }
 }
 
-/* Full width with margins on mobile, capped so a large phone does not blow
-   a door up past what still reads as a doorway. */
+/* Full width with margins on tablet-portrait and up (860px is also where the
+   row layout above starts). max-width caps a phone-sized door from also
+   blowing up on a wider stacked layout; the real phone-specific shrink is
+   below, in the next breakpoint down. */
 @media (max-width: 859.98px) {
   .door {
     max-width: 22rem;
@@ -290,10 +322,72 @@ a:focus-visible {
 
 /* Below tablet, the frame steps back to corner marks only — the ruled border
    itself would sit too close to the content at that width to stay
-   background. */
+   background — and its inset tightens, so the marks sit closer to the true
+   edge and leave more room for content relative to themselves. */
 @media (max-width: 767.98px) {
   .frame {
     border: none;
+    inset: 0.75rem;
+  }
+}
+
+/* Phone widths specifically (tablet-portrait, ~768px and up, keeps the
+   22rem tier above — it has the vertical room a phone doesn't). Every block
+   shrinks or tightens here — not just the doors — because getting two doors
+   into one phone viewport is a budget across the WHOLE page, not a door-only
+   problem: the wordmark and tagline eat into the same space. Numbers below
+   are measured against real viewport heights (375x667 and 360x650, chosen as
+   a small-but-not-smallest phone and the same phone with browser chrome
+   subtracted), not guessed — see the README. */
+@media (max-width: 599.98px) {
+  .page {
+    padding-block-start: clamp(0.5rem, 2vh, 0.875rem);
+  }
+
+  .brand img {
+    width: clamp(5rem, 20vw + 1.5rem, 6.25rem);
+  }
+
+  :root {
+    --gap-brand-tagline: 0.4rem;
+    --gap-tagline-doors: 0.6rem;
+  }
+
+  /* Forces "was written for you." onto its own line, so the break falls
+     after "the one that" — the readable pause point — rather than wherever
+     the browser happens to wrap at whatever width a given phone has. */
+  .tagline__tail {
+    display: block;
+  }
+
+  /* Small enough that "The best song is the one that" — the longer of the
+     two resulting lines, 30 characters — fits that line on its own, at
+     every phone width from 320px to 430px. Found by binary search directly
+     in a browser, not a formula: at 16px it still wraps a second time, at
+     20px it wraps at an ugly point ("...the one" / "that"), and both are
+     worse than just picking a size that sits safely inside the range that
+     tested clean. max-width is reset to none — the 40ch above is sized for
+     the desktop one-line case and has no job here. */
+  .tagline {
+    max-width: none;
+    font-size: clamp(1.0625rem, 1rem + 0.5vw, 1.1875rem);
+    line-height: 1.2;
+  }
+
+  .door {
+    max-width: 8.25rem;
+  }
+
+  .doors {
+    gap: 0.55rem;
+  }
+
+  .door__caption {
+    white-space: normal;
+    margin-top: 0.3rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
   }
 }
 

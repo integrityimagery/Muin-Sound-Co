@@ -22,20 +22,23 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
     <!-- Fonts: matched to the wordmark's hand-drawn, warm-folk lettering
-         (Fraunces, at a light weight for the statement) and a comfortable
-         body face (Alegreya Sans). Only the weights actually used are
-         requested. display=swap so text never waits on the font to paint. -->
+         (Fraunces — 400 for the tagline, 300 for the lighter door captions)
+         and a comfortable body face (Alegreya Sans). Only the weights
+         actually used are requested. display=swap so text never waits on
+         the font to paint. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Alegreya+Sans:wght@400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Alegreya+Sans:wght@400&display=swap"
     />
 
-    <!-- The doors' CLOSED state is what paints first; preload it at high
-         priority. The OPEN state is only needed on interaction, so it is
-         preloaded too but at low priority — it should not compete with
-         anything visible on first paint. -->
+    <!-- The wordmark is now literally the first thing on the page, then the
+         doors' CLOSED state — both preloaded at high priority. The OPEN
+         state is only needed on interaction, so it is preloaded too but at
+         low priority — it should not compete with anything visible on
+         first paint. -->
+    <link rel="preload" as="image" href="assets/images/cottagecore-2a-wordmark.webp" type="image/webp" fetchpriority="high" />
     <link rel="preload" as="image" href="assets/images/weddings-closed.webp" type="image/webp" fetchpriority="high" />
     <link rel="preload" as="image" href="assets/images/parties-closed.webp" type="image/webp" fetchpriority="high" />
     <link rel="preload" as="image" href="assets/images/gaming-closed.webp" type="image/webp" fetchpriority="high" />
@@ -80,9 +83,10 @@
          pattern) instead of repeating the same facts three times.
 
          Three Service entities below, one per door. Their name/description
-         are deliberately built ONLY from words already on this page — the
-         h1 statement, split by category — with nothing added that isn't
-         there: no price, no turnaround time, no service area, no reviews.
+         are deliberately built ONLY from copy already on this page — the
+         meta description's per-occasion breakdown — with nothing added that
+         isn't there: no price, no turnaround time, no service area, no
+         reviews.
          Structured data claiming any of that would not match visible page
          content, which is exactly what Google's guidelines warn against, and
          none of it exists here to draw from honestly. Still deliberately NOT
@@ -233,23 +237,45 @@
     </div>
 
     <main class="page">
-      <h1 class="statement">
-        Muin Sound Co. writes and produces original songs and soundtracks for your
-        wedding, themed party or tabletop gaming campaign.
+      <!-- Lead brand mark. Same asset the footer used before this pass —
+           now the first thing on the page, not the last. -->
+      <picture class="brand">
+        <source srcset="assets/images/cottagecore-2a-wordmark.webp" type="image/webp" />
+        <img
+          src="assets/images/cottagecore-2a-wordmark.png"
+          alt="Muin Sound Co."
+          width="440"
+          height="183"
+          fetchpriority="high"
+        />
+      </picture>
+
+      <!-- The one thing this page says. Meta description keeps the older,
+           longer sentence — that copy still does real SEO work, it just no
+           longer needs to be the thing a visitor reads first. -->
+      <h1 class="tagline">
+        The best song is the one that
+        <span class="tagline__tail">was written for you.</span>
       </h1>
 
       <!-- The three doors ARE the site's navigation — there is no separate
            nav bar. Still marked up as a <nav> landmark, which is the correct
-           semantic home for "the only way through this page." -->
+           semantic home for "the only way through this page."
+
+           No aria-label on the doors themselves any more: each link's
+           accessible name now comes from its caption (real, visible text),
+           not an override. The two door images carry empty alt — with a
+           real caption inside the same link, describing the artwork again
+           in alt would be the same content read twice. -->
       <nav class="doors" aria-label="Choose your occasion">
-        <a class="door" href="weddings" aria-label="Weddings">
+        <a class="door" href="weddings">
           <span class="door__frame">
             <picture>
               <source srcset="assets/images/weddings-closed.webp" type="image/webp" />
               <img
                 class="door__img door__img--closed"
                 src="assets/images/weddings-closed.png"
-                alt="An arched double door twined with a rose vine, a WEDDINGS sign above it, closed"
+                alt=""
                 width="600"
                 height="800"
                 fetchpriority="high"
@@ -260,23 +286,24 @@
               <img
                 class="door__img door__img--open"
                 src="assets/images/weddings-open.png"
-                alt="The same rose-twined arched doorway standing open, revealing a candlelit aisle inside"
+                alt=""
                 width="600"
                 height="800"
                 fetchpriority="low"
               />
             </picture>
           </span>
+          <span class="door__caption">First dances and parent dances</span>
         </a>
 
-        <a class="door" href="parties" aria-label="Parties">
+        <a class="door" href="parties">
           <span class="door__frame">
             <picture>
               <source srcset="assets/images/parties-closed.webp" type="image/webp" />
               <img
                 class="door__img door__img--closed"
                 src="assets/images/parties-closed.png"
-                alt="An arched door flanked by two hanging lanterns, a PARTIES sign hanging on it, closed"
+                alt=""
                 width="600"
                 height="800"
                 fetchpriority="high"
@@ -287,23 +314,24 @@
               <img
                 class="door__img door__img--open"
                 src="assets/images/parties-open.png"
-                alt="The lantern-flanked door standing open, revealing paper lanterns strung inside"
+                alt=""
                 width="600"
                 height="800"
                 fetchpriority="low"
               />
             </picture>
           </span>
+          <span class="door__caption">Themed events and murder mysteries</span>
         </a>
 
-        <a class="door" href="gaming" aria-label="Gaming">
+        <a class="door" href="gaming">
           <span class="door__frame">
             <picture>
               <source srcset="assets/images/gaming-closed.webp" type="image/webp" />
               <img
                 class="door__img door__img--closed"
                 src="assets/images/gaming-closed.png"
-                alt="A wooden tavern-style door with a small windowed grille and a GAMING sign, closed"
+                alt=""
                 width="600"
                 height="800"
                 fetchpriority="high"
@@ -314,31 +342,16 @@
               <img
                 class="door__img door__img--open"
                 src="assets/images/gaming-open.png"
-                alt="The tavern door standing open, revealing a round table under a hanging lamp inside"
+                alt=""
                 width="600"
                 height="800"
                 fetchpriority="low"
               />
             </picture>
           </span>
+          <span class="door__caption">Tabletop campaign scores</span>
         </a>
       </nav>
     </main>
-
-    <footer class="site-footer">
-      <!-- The wordmark is the only content here. It carries the same
-           non-empty alt the lockup did up top — it is now the sole visible
-           text identifying the business anywhere on the page. -->
-      <picture>
-        <source srcset="assets/images/cottagecore-2a-wordmark.webp" type="image/webp" />
-        <img
-          src="assets/images/cottagecore-2a-wordmark.png"
-          alt="Muin Sound Co."
-          width="440"
-          height="183"
-          loading="lazy"
-        />
-      </picture>
-    </footer>
   </body>
 </html>
